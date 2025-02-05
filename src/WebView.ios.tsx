@@ -1,33 +1,17 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import React, { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { Image, View, ImageSourcePropType, HostComponent } from 'react-native';
 import invariant from 'invariant';
 
 import RNCWebView, { Commands, NativeProps } from './RNCWebViewNativeComponent';
 import RNCWebViewModule from './NativeRNCWebViewModule';
 
-import {
-  defaultOriginWhitelist,
-  defaultRenderError,
-  defaultRenderLoading,
-  useWebViewLogic,
-} from './WebViewShared';
-import {
-  IOSWebViewProps,
-  DecelerationRateConstant,
-  WebViewSourceUri,
-} from './WebViewTypes';
+import { defaultOriginWhitelist, defaultRenderError, defaultRenderLoading, useWebViewLogic } from './WebViewShared';
+import { IOSWebViewProps, DecelerationRateConstant, WebViewSourceUri } from './WebViewTypes';
 
 import styles from './WebView.styles';
 
 const { resolveAssetSource } = Image;
-const processDecelerationRate = (
-  decelerationRate: DecelerationRateConstant | number | undefined
-) => {
+const processDecelerationRate = (decelerationRate: DecelerationRateConstant | number | undefined) => {
   let newDecelerationRate = decelerationRate;
   if (newDecelerationRate === 'normal') {
     newDecelerationRate = 0.998;
@@ -40,9 +24,7 @@ const processDecelerationRate = (
 const useWarnIfChanges = <T extends unknown>(value: T, name: string) => {
   const ref = useRef(value);
   if (ref.current !== value) {
-    console.warn(
-      `Changes to property ${name} do nothing after the initial render.`
-    );
+    console.warn(`Changes to property ${name} do nothing after the initial render.`);
     ref.current = value;
   }
 };
@@ -73,6 +55,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onHttpError: onHttpErrorProp,
       onMessage: onMessageProp,
       onOpenWindow: onOpenWindowProp,
+      onSnapshotCreated: onSnapshotCreatedProp,
+      onWebArchiveCreated: onWebArchiveCreatedProp,
       renderLoading,
       renderError,
       style,
@@ -91,16 +75,11 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
     },
     ref
   ) => {
-    const webViewRef = useRef<React.ComponentRef<
-      HostComponent<NativeProps>
-    > | null>(null);
+    const webViewRef = useRef<React.ComponentRef<HostComponent<NativeProps>> | null>(null);
 
     const onShouldStartLoadWithRequestCallback = useCallback(
       (shouldStart: boolean, _url: string, lockIdentifier = 0) => {
-        RNCWebViewModule.shouldStartLoadWithLockIdentifier(
-          shouldStart,
-          lockIdentifier
-        );
+        RNCWebViewModule.shouldStartLoadWithLockIdentifier(shouldStart, lockIdentifier);
       },
       []
     );
@@ -118,6 +97,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onLoadingProgress,
       onOpenWindow,
       onContentProcessDidTerminate,
+      onSnapshotCreated,
+      onWebArchiveCreated,
     } = useWebViewLogic({
       onNavigationStateChange,
       onLoad,
@@ -133,13 +114,14 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onShouldStartLoadWithRequestProp,
       onShouldStartLoadWithRequestCallback,
       onContentProcessDidTerminateProp,
+      onSnapshotCreatedProp,
+      onWebArchiveCreatedProp,
     });
 
     useImperativeHandle(
       ref,
       () => ({
-        goForward: () =>
-          webViewRef.current && Commands.goForward(webViewRef.current),
+        goForward: () => webViewRef.current && Commands.goForward(webViewRef.current),
         goBack: () => webViewRef.current && Commands.goBack(webViewRef.current),
         reload: () => {
           setViewState('LOADING');
@@ -147,46 +129,31 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
             Commands.reload(webViewRef.current);
           }
         },
-        stopLoading: () =>
-          webViewRef.current && Commands.stopLoading(webViewRef.current),
-        postMessage: (data: string) =>
-          webViewRef.current && Commands.postMessage(webViewRef.current, data),
-        injectJavaScript: (data: string) =>
-          webViewRef.current &&
-          Commands.injectJavaScript(webViewRef.current, data),
-        requestFocus: () =>
-          webViewRef.current && Commands.requestFocus(webViewRef.current),
+        stopLoading: () => webViewRef.current && Commands.stopLoading(webViewRef.current),
+        postMessage: (data: string) => webViewRef.current && Commands.postMessage(webViewRef.current, data),
+        injectJavaScript: (data: string) => webViewRef.current && Commands.injectJavaScript(webViewRef.current, data),
+        requestFocus: () => webViewRef.current && Commands.requestFocus(webViewRef.current),
         clearCache: (includeDiskFiles: boolean) =>
-          webViewRef.current &&
-          Commands.clearCache(webViewRef.current, includeDiskFiles),
+          webViewRef.current && Commands.clearCache(webViewRef.current, includeDiskFiles),
+        takeSnapshot: (filename: string) => webViewRef.current && Commands.takeSnapshot(webViewRef.current, filename),
+        takeWebArchive: (filename: string) =>
+          webViewRef.current && Commands.createWebArchive(webViewRef.current, filename),
       }),
       [setViewState, webViewRef]
     );
 
     useWarnIfChanges(allowsInlineMediaPlayback, 'allowsInlineMediaPlayback');
-    useWarnIfChanges(
-      allowsPictureInPictureMediaPlayback,
-      'allowsPictureInPictureMediaPlayback'
-    );
-    useWarnIfChanges(
-      allowsAirPlayForMediaPlayback,
-      'allowsAirPlayForMediaPlayback'
-    );
+    useWarnIfChanges(allowsPictureInPictureMediaPlayback, 'allowsPictureInPictureMediaPlayback');
+    useWarnIfChanges(allowsAirPlayForMediaPlayback, 'allowsAirPlayForMediaPlayback');
     useWarnIfChanges(incognito, 'incognito');
-    useWarnIfChanges(
-      mediaPlaybackRequiresUserAction,
-      'mediaPlaybackRequiresUserAction'
-    );
+    useWarnIfChanges(mediaPlaybackRequiresUserAction, 'mediaPlaybackRequiresUserAction');
     useWarnIfChanges(dataDetectorTypes, 'dataDetectorTypes');
 
     let otherView = null;
     if (viewState === 'LOADING') {
       otherView = (renderLoading || defaultRenderLoading)();
     } else if (viewState === 'ERROR') {
-      invariant(
-        lastErrorEvent != null,
-        'lastErrorEvent expected to be non-null'
-      );
+      invariant(lastErrorEvent != null, 'lastErrorEvent expected to be non-null');
       otherView = (renderError || defaultRenderError)(
         lastErrorEvent?.domain,
         lastErrorEvent?.code ?? 0,
@@ -201,31 +168,25 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
 
     const decelerationRate = processDecelerationRate(decelerationRateProp);
 
-    const NativeWebView =
-      (nativeConfig?.component as typeof RNCWebView | undefined) || RNCWebView;
+    const NativeWebView = (nativeConfig?.component as typeof RNCWebView | undefined) || RNCWebView;
 
     const sourceResolved = resolveAssetSource(source as ImageSourcePropType);
     const newSource =
       typeof sourceResolved === 'object'
-        ? Object.entries(sourceResolved as WebViewSourceUri).reduce(
-            (prev, [currKey, currValue]) => {
-              return {
-                ...prev,
-                [currKey]:
-                  currKey === 'headers' &&
-                  currValue &&
-                  typeof currValue === 'object'
-                    ? Object.entries(currValue).map(([key, value]) => {
-                        return {
-                          name: key,
-                          value,
-                        };
-                      })
-                    : currValue,
-              };
-            },
-            {}
-          )
+        ? Object.entries(sourceResolved as WebViewSourceUri).reduce((prev, [currKey, currValue]) => {
+            return {
+              ...prev,
+              [currKey]:
+                currKey === 'headers' && currValue && typeof currValue === 'object'
+                  ? Object.entries(currValue).map(([key, value]) => {
+                      return {
+                        name: key,
+                        value,
+                      };
+                    })
+                  : currValue,
+            };
+          }, {})
         : sourceResolved;
 
     const webView = (
@@ -252,31 +213,25 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onContentProcessDidTerminate={onContentProcessDidTerminate}
         injectedJavaScript={injectedJavaScript}
-        injectedJavaScriptBeforeContentLoaded={
-          injectedJavaScriptBeforeContentLoaded
-        }
+        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded}
         injectedJavaScriptForMainFrameOnly={injectedJavaScriptForMainFrameOnly}
-        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={
-          injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-        }
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={injectedJavaScriptBeforeContentLoadedForMainFrameOnly}
         injectedJavaScriptObject={JSON.stringify(injectedJavaScriptObject)}
         dataDetectorTypes={
-          !dataDetectorTypes || Array.isArray(dataDetectorTypes)
-            ? dataDetectorTypes
-            : [dataDetectorTypes]
+          !dataDetectorTypes || Array.isArray(dataDetectorTypes) ? dataDetectorTypes : [dataDetectorTypes]
         }
         allowsAirPlayForMediaPlayback={allowsAirPlayForMediaPlayback}
         allowsInlineMediaPlayback={allowsInlineMediaPlayback}
-        allowsPictureInPictureMediaPlayback={
-          allowsPictureInPictureMediaPlayback
-        }
+        allowsPictureInPictureMediaPlayback={allowsPictureInPictureMediaPlayback}
         incognito={incognito}
         mediaPlaybackRequiresUserAction={mediaPlaybackRequiresUserAction}
         newSource={newSource}
         style={webViewStyles}
         hasOnFileDownload={!!onFileDownload}
         ref={webViewRef}
-        // @ts-expect-error old arch only
+        // @ts-expect-error
+        onSnapshotCreated={onSnapshotCreatedProp && onSnapshotCreated}
+        onWebArchiveCreated={onWebArchiveCreatedProp && onWebArchiveCreated}
         source={sourceResolved}
         {...nativeConfig?.props}
       />

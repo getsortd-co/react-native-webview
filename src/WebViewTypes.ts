@@ -23,6 +23,7 @@ type WebViewCommands =
   | 'clearCache';
 
 type AndroidWebViewCommands = 'clearHistory' | 'clearFormData';
+type IOSWebViewCommands = 'takeSnapshot' | 'createWebArchive';
 
 interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
   getViewManagerConfig: (name: string) => {
@@ -30,10 +31,8 @@ interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
   };
 }
 
-export type RNCWebViewUIManagerAndroid = RNCWebViewUIManager<
-  WebViewCommands | AndroidWebViewCommands
->;
-export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands>;
+export type RNCWebViewUIManagerAndroid = RNCWebViewUIManager<WebViewCommands | AndroidWebViewCommands>;
+export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands | IOSWebViewCommands>;
 export type RNCWebViewUIManagerMacOS = RNCWebViewUIManager<WebViewCommands>;
 export type RNCWebViewUIManagerWindows = RNCWebViewUIManager<WebViewCommands>;
 
@@ -58,13 +57,11 @@ export type State = NormalState | ErrorState;
 type Constructor<T> = new (...args: any[]) => T;
 
 declare class NativeWebViewMacOSComponent extends Component<MacOSNativeWebViewProps> {}
-declare const NativeWebViewMacOSBase: Constructor<NativeMethodsMixin> &
-  typeof NativeWebViewMacOSComponent;
+declare const NativeWebViewMacOSBase: Constructor<NativeMethodsMixin> & typeof NativeWebViewMacOSComponent;
 export class NativeWebViewMacOS extends NativeWebViewMacOSBase {}
 
 declare class NativeWebViewWindowsComponent extends Component<WindowsNativeWebViewProps> {}
-declare const NativeWebViewWindowsBase: Constructor<NativeMethodsMixin> &
-  typeof NativeWebViewWindowsComponent;
+declare const NativeWebViewWindowsBase: Constructor<NativeMethodsMixin> & typeof NativeWebViewWindowsComponent;
 export class NativeWebViewWindows extends NativeWebViewWindowsBase {}
 
 export interface ContentInsetProp {
@@ -88,13 +85,7 @@ export interface WebViewNativeProgressEvent extends WebViewNativeEvent {
 }
 
 export interface WebViewNavigation extends WebViewNativeEvent {
-  navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  navigationType: 'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other';
   mainDocumentURL?: string;
 }
 
@@ -110,6 +101,14 @@ export type DecelerationRateConstant = 'normal' | 'fast';
 
 export interface WebViewMessage extends WebViewNativeEvent {
   data: string;
+}
+
+export interface WebViewSnapshotEvent extends WebViewNativeEvent {
+  filepath: string;
+}
+
+export interface WebViewWebArchiveEvent extends WebViewNativeEvent {
+  filepath: string;
 }
 
 export interface WebViewError extends WebViewNativeEvent {
@@ -136,13 +135,11 @@ export interface WebViewOpenWindow {
 
 export type WebViewEvent = NativeSyntheticEvent<WebViewNativeEvent>;
 
-export type WebViewProgressEvent =
-  NativeSyntheticEvent<WebViewNativeProgressEvent>;
+export type WebViewProgressEvent = NativeSyntheticEvent<WebViewNativeProgressEvent>;
 
 export type WebViewNavigationEvent = NativeSyntheticEvent<WebViewNavigation>;
 
-export type ShouldStartLoadRequestEvent =
-  NativeSyntheticEvent<ShouldStartLoadRequest>;
+export type ShouldStartLoadRequestEvent = NativeSyntheticEvent<ShouldStartLoadRequest>;
 
 export type FileDownloadEvent = NativeSyntheticEvent<FileDownload>;
 
@@ -154,8 +151,7 @@ export type WebViewTerminatedEvent = NativeSyntheticEvent<WebViewNativeEvent>;
 
 export type WebViewHttpErrorEvent = NativeSyntheticEvent<WebViewHttpError>;
 
-export type WebViewRenderProcessGoneEvent =
-  NativeSyntheticEvent<WebViewRenderProcessGoneDetail>;
+export type WebViewRenderProcessGoneEvent = NativeSyntheticEvent<WebViewRenderProcessGoneDetail>;
 
 export type WebViewOpenWindowEvent = NativeSyntheticEvent<WebViewOpenWindow>;
 
@@ -174,11 +170,7 @@ export type DataDetectorTypes =
 
 export type OverScrollModeType = 'always' | 'content' | 'never';
 
-export type CacheMode =
-  | 'LOAD_DEFAULT'
-  | 'LOAD_CACHE_ONLY'
-  | 'LOAD_CACHE_ELSE_NETWORK'
-  | 'LOAD_NO_CACHE';
+export type CacheMode = 'LOAD_DEFAULT' | 'LOAD_CACHE_ONLY' | 'LOAD_CACHE_ELSE_NETWORK' | 'LOAD_NO_CACHE';
 
 export type AndroidLayerType = 'none' | 'software' | 'hardware';
 
@@ -269,9 +261,7 @@ export interface WebViewNativeConfig {
   viewManager?: ViewManager;
 }
 
-export type OnShouldStartLoadWithRequest = (
-  event: ShouldStartLoadRequest
-) => boolean;
+export type OnShouldStartLoadWithRequest = (event: ShouldStartLoadRequest) => boolean;
 
 export interface BasicAuthCredential {
   /**
@@ -317,11 +307,7 @@ export interface CommonNativeWebViewProps extends ViewProps {
   basicAuthCredential?: BasicAuthCredential;
 }
 
-export declare type ContentInsetAdjustmentBehavior =
-  | 'automatic'
-  | 'scrollableAxes'
-  | 'never'
-  | 'always';
+export declare type ContentInsetAdjustmentBehavior = 'automatic' | 'scrollableAxes' | 'never' | 'always';
 
 export declare type MediaCapturePermissionGrantType =
   | 'grantIfSameHostElsePrompt'
@@ -762,6 +748,23 @@ export interface IOSWebViewProps extends WebViewSharedProps {
    * @platform ios
    */
   fraudulentWebsiteWarningEnabled?: boolean;
+  /**
+   * Function that is invoked after a snapshot has been created.
+   *
+   * This happens when the JS calls `takeSnapshot('foo.png')`
+   *
+   * @platform ios
+   */
+  onSnapshotCreated?: (event: WebViewSnapshotEvent) => void;
+
+  /**
+   * Function that is invoked after a web archive has been created.
+   *
+   * This happens when the JS calls `createWebArchive('foo.webarchive')`
+   *
+   * @platform ios
+   */
+  onWebArchiveCreated?: (event: WebViewWebArchiveEvent) => void;
 }
 
 export interface MacOSWebViewProps extends WebViewSharedProps {
@@ -1174,11 +1177,7 @@ export interface WebViewSharedProps extends ViewProps {
   /**
    * Function that returns a view to show if there's an error.
    */
-  renderError?: (
-    errorDomain: string | undefined,
-    errorCode: number,
-    errorDesc: string
-  ) => ReactElement; // view to show if there's an error
+  renderError?: (errorDomain: string | undefined, errorCode: number, errorDesc: string) => ReactElement; // view to show if there's an error
 
   /**
    * Function that returns a loading indicator.

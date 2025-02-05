@@ -8,6 +8,7 @@
 #import "RNCWebViewImpl.h"
 #import <React/RCTConvert.h>
 #import <React/RCTAutoInsetsProtocol.h>
+#import <React/RCTBridgeModule.h>
 #import "RNCWKProcessPoolManager.h"
 #if !TARGET_OS_OSX
 #import <UIKit/UIKit.h>
@@ -1650,6 +1651,54 @@ didFinishNavigation:(WKNavigation *)navigation
     ]];
   }
   [self removeData:dataTypes];
+}
+
+- (void)takeSnapshot:(NSString *)filename
+{
+  if (@available(iOS 11.0, *)) {
+    if (_webView == nil) {
+        return;
+    }
+    [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (snapshotImage != nil) {
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        NSString *documentsDirectory = [paths objectAtIndex:0];
+        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
+        [UIImagePNGRepresentation(snapshotImage) writeToFile:filePath atomically:YES];
+        NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
+        [snapshotEvent addEntriesFromDictionary: @{
+          @"filepath": filePath,
+        }];
+        if(_onSnapshotCreated) {
+          _onSnapshotCreated(snapshotEvent);
+        }
+      }
+    }];
+  }
+}
+
+- (void)createWebArchive:(NSString *)filename
+{
+  if (@available(iOS 14.0, *)) {
+    if (_webView == nil) {
+        return;
+    }
+    [_webView createWebArchiveDataWithCompletionHandler:^(NSData * _Nullable webArchiveData, NSError * _Nullable error) {
+      if (webArchiveData != nil) {
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        NSString *documentsDirectory = [paths objectAtIndex:0];
+        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
+        [webArchiveData writeToFile:filePath atomically:YES];
+        NSMutableDictionary<NSString *, id> *webArchiveEvent = [self baseEvent];
+        [webArchiveEvent addEntriesFromDictionary: @{
+          @"filepath": filePath,
+        }];
+        if(_onWebArchiveCreated) {
+          _onWebArchiveCreated(webArchiveEvent);
+        }
+      }
+    }];
+  }
 }
 
 - (void)removeData:(NSSet *)dataTypes

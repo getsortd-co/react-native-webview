@@ -7,6 +7,7 @@
 
 #import <React/RCTView.h>
 #import <React/RCTDefines.h>
+#import <React/RCTBridgeModule.h>
 #import <WebKit/WKDataDetectorTypes.h>
 #import <WebKit/WebKit.h>
 
@@ -64,6 +65,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 @property (nonatomic, copy) RCTDirectEventBlock onScroll;
 @property (nonatomic, copy) RCTDirectEventBlock onContentProcessDidTerminate;
 @property (nonatomic, copy) RCTDirectEventBlock onOpenWindow;
+@property (nonatomic, copy) RCTDirectEventBlock onSnapshotCreated;
+@property (nonatomic, copy) RCTDirectEventBlock onWebArchiveCreated;
 
 
 @property (nonatomic, weak) id<RNCWebViewDelegate> _Nullable delegate;
@@ -148,6 +151,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 - (void)stopLoading;
 - (void)requestFocus;
 - (void)clearCache:(BOOL)includeDiskFiles;
+- (void)takeSnapshot:(NSString *)filename;
+- (void)createWebArchive:(NSString *)filename;
 #ifdef RCT_NEW_ARCH_ENABLED
 - (void)destroyWebView;
 #endif

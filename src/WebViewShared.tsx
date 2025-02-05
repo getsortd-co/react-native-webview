@@ -13,6 +13,8 @@ import {
   WebViewOpenWindowEvent,
   WebViewProgressEvent,
   WebViewRenderProcessGoneEvent,
+  WebViewSnapshotEvent,
+  WebViewWebArchiveEvent,
   WebViewTerminatedEvent,
 } from './WebViewTypes';
 import styles from './WebView.styles';
@@ -32,17 +34,11 @@ const passesWhitelist = (compiledWhitelist: readonly string[], url: string) => {
   return compiledWhitelist.some((x) => new RegExp(x).test(origin));
 };
 
-const compileWhitelist = (
-  originWhitelist: readonly string[]
-): readonly string[] =>
+const compileWhitelist = (originWhitelist: readonly string[]): readonly string[] =>
   ['about:blank', ...(originWhitelist || [])].map(originWhitelistToRegex);
 
 const createOnShouldStartLoadWithRequest = (
-  loadRequest: (
-    shouldStart: boolean,
-    url: string,
-    lockIdentifier: number
-  ) => void,
+  loadRequest: (shouldStart: boolean, url: string, lockIdentifier: number) => void,
   originWhitelist: readonly string[],
   onShouldStartLoadWithRequest?: OnShouldStartLoadWithRequest
 ) => {
@@ -76,11 +72,7 @@ const defaultRenderLoading = () => (
     <ActivityIndicator />
   </View>
 );
-const defaultRenderError = (
-  errorDomain: string | undefined,
-  errorCode: number,
-  errorDesc: string
-) => (
+const defaultRenderError = (errorDomain: string | undefined, errorCode: number, errorDesc: string) => (
   <View style={styles.loadingOrErrorView}>
     <Text style={styles.errorTextTitle}>Error loading page</Text>
     <Text style={styles.errorText}>{`Domain: ${errorDomain}`}</Text>
@@ -89,12 +81,7 @@ const defaultRenderError = (
   </View>
 );
 
-export {
-  defaultOriginWhitelist,
-  createOnShouldStartLoadWithRequest,
-  defaultRenderLoading,
-  defaultRenderError,
-};
+export { defaultOriginWhitelist, createOnShouldStartLoadWithRequest, defaultRenderLoading, defaultRenderError };
 
 export const useWebViewLogic = ({
   startInLoadingState,
@@ -112,6 +99,8 @@ export const useWebViewLogic = ({
   originWhitelist,
   onShouldStartLoadWithRequestProp,
   onShouldStartLoadWithRequestCallback,
+  onSnapshotCreatedProp,
+  onWebArchiveCreatedProp,
 }: {
   startInLoadingState?: boolean;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
@@ -132,13 +121,11 @@ export const useWebViewLogic = ({
     url: string,
     lockIdentifier?: number | undefined
   ) => void;
+  onSnapshotCreatedProp?: (event: WebViewSnapshotEvent) => void;
+  onWebArchiveCreatedProp?: (event: WebViewWebArchiveEvent) => void;
 }) => {
-  const [viewState, setViewState] = useState<'IDLE' | 'LOADING' | 'ERROR'>(
-    startInLoadingState ? 'LOADING' : 'IDLE'
-  );
-  const [lastErrorEvent, setLastErrorEvent] = useState<WebViewError | null>(
-    null
-  );
+  const [viewState, setViewState] = useState<'IDLE' | 'LOADING' | 'ERROR'>(startInLoadingState ? 'LOADING' : 'IDLE');
+  const [lastErrorEvent, setLastErrorEvent] = useState<WebViewError | null>(null);
   const startUrl = useRef<string | null>(null);
 
   const updateNavigationState = useCallback(
@@ -234,9 +221,7 @@ export const useWebViewLogic = ({
       } = event;
       // patch for Android only
       if (Platform.OS === 'android' && progress === 1) {
-        setViewState((prevViewState) =>
-          prevViewState === 'LOADING' ? 'IDLE' : prevViewState
-        );
+        setViewState((prevViewState) => (prevViewState === 'LOADING' ? 'IDLE' : prevViewState));
       }
       // !patch for Android only
       onLoadProgress?.(event);
@@ -251,11 +236,7 @@ export const useWebViewLogic = ({
         originWhitelist,
         onShouldStartLoadWithRequestProp
       ),
-    [
-      originWhitelist,
-      onShouldStartLoadWithRequestProp,
-      onShouldStartLoadWithRequestCallback,
-    ]
+    [originWhitelist, onShouldStartLoadWithRequestProp, onShouldStartLoadWithRequestCallback]
   );
 
   const onOpenWindow = useCallback(
@@ -263,6 +244,20 @@ export const useWebViewLogic = ({
       onOpenWindowProp?.(event);
     },
     [onOpenWindowProp]
+  );
+
+  const onSnapshotCreated = useCallback(
+    (event: WebViewSnapshotEvent) => {
+      onSnapshotCreatedProp?.(event);
+    },
+    [onSnapshotCreatedProp]
+  );
+
+  const onWebArchiveCreated = useCallback(
+    (event: WebViewWebArchiveEvent) => {
+      onWebArchiveCreatedProp?.(event);
+    },
+    [onWebArchiveCreatedProp]
   );
 
   return {
@@ -279,5 +274,7 @@ export const useWebViewLogic = ({
     viewState,
     setViewState,
     lastErrorEvent,
+    onSnapshotCreated,
+    onWebArchiveCreated,
   };
 };
