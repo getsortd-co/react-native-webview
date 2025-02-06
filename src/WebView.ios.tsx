@@ -157,8 +157,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         requestFocus: () =>
           webViewRef.current && Commands.requestFocus(webViewRef.current),
         clearCache: (includeDiskFiles: boolean) =>
-          webViewRef.current &&
-          Commands.clearCache(webViewRef.current, includeDiskFiles),
+          webViewRef.current && Commands.clearCache(webViewRef.current, includeDiskFiles),
+        takeSnapshot: () => webViewRef.current && Commands.takeSnapshot(webViewRef.current),
       }),
       [setViewState, webViewRef]
     );

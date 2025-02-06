@@ -8,6 +8,7 @@
 #import "RNCWebViewImpl.h"
 #import <React/RCTConvert.h>
 #import <React/RCTAutoInsetsProtocol.h>
+#import <React/RCTBridgeModule.h>
 #import "RNCWKProcessPoolManager.h"
 #if !TARGET_OS_OSX
 #import <UIKit/UIKit.h>
@@ -1652,6 +1653,40 @@ didFinishNavigation:(WKNavigation *)navigation
   [self removeData:dataTypes];
 }
 
+- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+  if (@available(iOS 11.0, *)) {
+    if (_webView == nil) {
+      reject(@"no_webview", @"No WebView instance available", nil);
+      return;
+    }
+    
+    // Create a configuration that captures more than the viewport.
+    WKSnapshotConfiguration *config = [[WKSnapshotConfiguration alloc] init];
+    CGRect bounds = _webView.bounds;
+    // Set the snapshot rect to be twice the height of the current bounds.
+    config.rect = CGRectMake(0, 0, bounds.size.width, bounds.size.height * 2);
+    
+    [_webView takeSnapshotWithConfiguration:config completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (error) {
+        reject(@"snapshot_error", @"Error taking snapshot", error);
+        return;
+      }
+      if (!snapshotImage) {
+        reject(@"snapshot_error", @"No image returned", nil);
+        return;
+      }
+      
+      // Convert image to PNG data and then to a base64 string.
+      NSData *imageData = UIImagePNGRepresentation(snapshotImage);
+      NSString *base64String = [imageData base64EncodedStringWithOptions:0];
+      
+      // Resolve the promise with the base64-encoded image.
+      resolve(base64String);
+    }];
+  } else {
+    reject(@"unsupported_ios", @"iOS 11 or above is required", nil);
+  }
+}
 - (void)removeData:(NSSet *)dataTypes
 {
   if (_webView == nil) {

@@ -319,6 +319,9 @@ export interface NativeCommands {
   ) => void;
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
+  // iOS Only
+  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => Promise<string>;
+  // !iOS Only
 }
 
 export const Commands = codegenNativeCommands<NativeCommands>({
@@ -334,6 +337,7 @@ export const Commands = codegenNativeCommands<NativeCommands>({
     'clearFormData',
     'clearCache',
     'clearHistory',
+    'takeSnapshot',
   ],
 });
 
