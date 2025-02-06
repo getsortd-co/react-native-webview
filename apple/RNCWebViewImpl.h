@@ -65,9 +65,6 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 @property (nonatomic, copy) RCTDirectEventBlock onScroll;
 @property (nonatomic, copy) RCTDirectEventBlock onContentProcessDidTerminate;
 @property (nonatomic, copy) RCTDirectEventBlock onOpenWindow;
-@property (nonatomic, copy) RCTDirectEventBlock onSnapshotCreated;
-@property (nonatomic, copy) RCTDirectEventBlock onWebArchiveCreated;
-
 
 @property (nonatomic, weak) id<RNCWebViewDelegate> _Nullable delegate;
 @property (nonatomic, copy) NSDictionary * _Nullable source;
@@ -151,8 +148,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 - (void)stopLoading;
 - (void)requestFocus;
 - (void)clearCache:(BOOL)includeDiskFiles;
-- (void)takeSnapshot:(NSString *)filename;
-- (void)createWebArchive:(NSString *)filename;
+- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject;
 #ifdef RCT_NEW_ARCH_ENABLED
 - (void)destroyWebView;
 #endif

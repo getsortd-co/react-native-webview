@@ -1653,54 +1653,40 @@ didFinishNavigation:(WKNavigation *)navigation
   [self removeData:dataTypes];
 }
 
-- (void)takeSnapshot:(NSString *)filename
-{
+- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
   if (@available(iOS 11.0, *)) {
     if (_webView == nil) {
-        return;
+      reject(@"no_webview", @"No WebView instance available", nil);
+      return;
     }
-    [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
-      if (snapshotImage != nil) {
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-        NSString *documentsDirectory = [paths objectAtIndex:0];
-        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
-        [UIImagePNGRepresentation(snapshotImage) writeToFile:filePath atomically:YES];
-        NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-        [snapshotEvent addEntriesFromDictionary: @{
-          @"filepath": filePath,
-        }];
-        if(_onSnapshotCreated) {
-          _onSnapshotCreated(snapshotEvent);
-        }
+    
+    // Create a configuration that captures more than the viewport.
+    WKSnapshotConfiguration *config = [[WKSnapshotConfiguration alloc] init];
+    CGRect bounds = _webView.bounds;
+    // Set the snapshot rect to be twice the height of the current bounds.
+    config.rect = CGRectMake(0, 0, bounds.size.width, bounds.size.height * 2);
+    
+    [_webView takeSnapshotWithConfiguration:config completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (error) {
+        reject(@"snapshot_error", @"Error taking snapshot", error);
+        return;
       }
+      if (!snapshotImage) {
+        reject(@"snapshot_error", @"No image returned", nil);
+        return;
+      }
+      
+      // Convert image to PNG data and then to a base64 string.
+      NSData *imageData = UIImagePNGRepresentation(snapshotImage);
+      NSString *base64String = [imageData base64EncodedStringWithOptions:0];
+      
+      // Resolve the promise with the base64-encoded image.
+      resolve(base64String);
     }];
+  } else {
+    reject(@"unsupported_ios", @"iOS 11 or above is required", nil);
   }
 }
-
-- (void)createWebArchive:(NSString *)filename
-{
-  if (@available(iOS 14.0, *)) {
-    if (_webView == nil) {
-        return;
-    }
-    [_webView createWebArchiveDataWithCompletionHandler:^(NSData * _Nullable webArchiveData, NSError * _Nullable error) {
-      if (webArchiveData != nil) {
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-        NSString *documentsDirectory = [paths objectAtIndex:0];
-        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
-        [webArchiveData writeToFile:filePath atomically:YES];
-        NSMutableDictionary<NSString *, id> *webArchiveEvent = [self baseEvent];
-        [webArchiveEvent addEntriesFromDictionary: @{
-          @"filepath": filePath,
-        }];
-        if(_onWebArchiveCreated) {
-          _onWebArchiveCreated(webArchiveEvent);
-        }
-      }
-    }];
-  }
-}
-
 - (void)removeData:(NSSet *)dataTypes
 {
   if (_webView == nil) {

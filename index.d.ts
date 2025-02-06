@@ -64,13 +64,7 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
    * (iOS only)
    * Captures the current visible view snapshot and save it to a file.
    */
-  takeSnapshot: (filename: string) => void;
-
-  /**
-   * (iOS only)
-   * Creates a web archive (webarchive) file from the current page and saves it to a file.
-   */
-  createWebArchive: (filename: string) => void;
+  takeSnapshot: () => Promise<string>;
 }
 
 export { WebView };

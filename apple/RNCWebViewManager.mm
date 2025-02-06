@@ -214,28 +214,18 @@ QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(postMessage, message:(NSString *)message,
 QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(injectJavaScript, script:(NSString *)script, script)
 QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(clearCache, includeDiskFiles:(BOOL)includeDiskFiles, includeDiskFiles)
 
-RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag filename:(NSString *)filename)
+RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
 {
-    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
-        RNCWebViewImpl *view = viewRegistry[reactTag];
-        if (![view isKindOfClass:[RNCWebViewImpl class]]) {
-            RCTLogError(@"Invalid view returned from registry, expecting RNCWebView, got: %@", view);
-        } else {
-            [view takeSnapshot:filename];
-        }
-    }];
+  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+    RNCWebViewImpl *view = viewRegistry[reactTag];
+    if (![view isKindOfClass:[RNCWebViewImpl class]]) {
+      reject(@"invalid_view", @"The view is not a valid RNCWebView", nil);
+      return;
+    }
+    
+    [view takeSnapshotAsyncWithResolver:resolve rejecter:reject];
+  }];
 }
-
-RCT_EXPORT_METHOD(createWebArchive:(nonnull NSNumber *)reactTag filename:(NSString *)filename)
-{
-    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, BASE_VIEW_PER_OS() *> *viewRegistry) {
-        RNCWebViewImpl *view = viewRegistry[reactTag];
-        if (![view isKindOfClass:[RNCWebViewImpl class]]) {
-            RCTLogError(@"Invalid view returned from registry, expecting RNCWebView, got: %@", view);
-        } else {
-            [view createWebArchive:filename];
-        }
-    }];
-}
-
 @end

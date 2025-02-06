@@ -276,8 +276,7 @@ export interface NativeCommands {
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
   // iOS Only
-  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>, filename: string) => void;
-  createWebArchive: (viewRef: React.ElementRef<HostComponent<NativeProps>>, filename: string) => void;
+  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => Promise<string>;
   // !iOS Only
 }
 
@@ -295,7 +294,6 @@ export const Commands = codegenNativeCommands<NativeCommands>({
     'clearCache',
     'clearHistory',
     'takeSnapshot',
-    'createWebArchive',
   ],
 });
 

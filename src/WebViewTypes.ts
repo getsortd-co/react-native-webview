@@ -23,7 +23,7 @@ type WebViewCommands =
   | 'clearCache';
 
 type AndroidWebViewCommands = 'clearHistory' | 'clearFormData';
-type IOSWebViewCommands = 'takeSnapshot' | 'createWebArchive';
+type IOSWebViewCommands = 'takeSnapshot';
 
 interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
   getViewManagerConfig: (name: string) => {
@@ -101,14 +101,6 @@ export type DecelerationRateConstant = 'normal' | 'fast';
 
 export interface WebViewMessage extends WebViewNativeEvent {
   data: string;
-}
-
-export interface WebViewSnapshotEvent extends WebViewNativeEvent {
-  filepath: string;
-}
-
-export interface WebViewWebArchiveEvent extends WebViewNativeEvent {
-  filepath: string;
 }
 
 export interface WebViewError extends WebViewNativeEvent {
@@ -748,23 +740,6 @@ export interface IOSWebViewProps extends WebViewSharedProps {
    * @platform ios
    */
   fraudulentWebsiteWarningEnabled?: boolean;
-  /**
-   * Function that is invoked after a snapshot has been created.
-   *
-   * This happens when the JS calls `takeSnapshot('foo.png')`
-   *
-   * @platform ios
-   */
-  onSnapshotCreated?: (event: WebViewSnapshotEvent) => void;
-
-  /**
-   * Function that is invoked after a web archive has been created.
-   *
-   * This happens when the JS calls `createWebArchive('foo.webarchive')`
-   *
-   * @platform ios
-   */
-  onWebArchiveCreated?: (event: WebViewWebArchiveEvent) => void;
 }
 
 export interface MacOSWebViewProps extends WebViewSharedProps {

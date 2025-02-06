@@ -55,8 +55,6 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onHttpError: onHttpErrorProp,
       onMessage: onMessageProp,
       onOpenWindow: onOpenWindowProp,
-      onSnapshotCreated: onSnapshotCreatedProp,
-      onWebArchiveCreated: onWebArchiveCreatedProp,
       renderLoading,
       renderError,
       style,
@@ -97,8 +95,6 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onLoadingProgress,
       onOpenWindow,
       onContentProcessDidTerminate,
-      onSnapshotCreated,
-      onWebArchiveCreated,
     } = useWebViewLogic({
       onNavigationStateChange,
       onLoad,
@@ -114,8 +110,6 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onShouldStartLoadWithRequestProp,
       onShouldStartLoadWithRequestCallback,
       onContentProcessDidTerminateProp,
-      onSnapshotCreatedProp,
-      onWebArchiveCreatedProp,
     });
 
     useImperativeHandle(
@@ -135,9 +129,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         requestFocus: () => webViewRef.current && Commands.requestFocus(webViewRef.current),
         clearCache: (includeDiskFiles: boolean) =>
           webViewRef.current && Commands.clearCache(webViewRef.current, includeDiskFiles),
-        takeSnapshot: (filename: string) => webViewRef.current && Commands.takeSnapshot(webViewRef.current, filename),
-        takeWebArchive: (filename: string) =>
-          webViewRef.current && Commands.createWebArchive(webViewRef.current, filename),
+        takeSnapshot: () => webViewRef.current && Commands.takeSnapshot(webViewRef.current),
       }),
       [setViewState, webViewRef]
     );
@@ -230,8 +222,6 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         hasOnFileDownload={!!onFileDownload}
         ref={webViewRef}
         // @ts-expect-error
-        onSnapshotCreated={onSnapshotCreatedProp && onSnapshotCreated}
-        onWebArchiveCreated={onWebArchiveCreatedProp && onWebArchiveCreated}
         source={sourceResolved}
         {...nativeConfig?.props}
       />
