@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import Alerts from './examples/Alerts';
+import Snapshot from './examples/Snapshot';
 import Scrolling from './examples/Scrolling';
 import Background from './examples/Background';
 import Downloads from './examples/Downloads';
@@ -49,6 +50,14 @@ const TESTS = {
     description: 'Alerts tests',
     render() {
       return <Alerts />;
+    },
+  },
+  Snapshot: {
+    title: 'Snapshot',
+    testId: 'snapshot',
+    description: 'Snapshot tests',
+    render() {
+      return <Snapshot />;
     },
   },
   Scrolling: {
@@ -191,36 +200,13 @@ export default class App extends Component<Props, State> {
         </TouchableOpacity>
 
         <View style={styles.testPickerContainer}>
-          <Button
-            testID="testType_alerts"
-            title="Alerts"
-            onPress={() => this._changeTest('Alerts')}
-          />
-          <Button
-            testID="testType_scrolling"
-            title="Scrolling"
-            onPress={() => this._changeTest('Scrolling')}
-          />
-          <Button
-            testID="testType_background"
-            title="Background"
-            onPress={() => this._changeTest('Background')}
-          />
-          <Button
-            testID="testType_injection"
-            title="Injection"
-            onPress={() => this._changeTest('Injection')}
-          />
-          <Button
-            testID="testType_pageLoad"
-            title="LocalPageLoad"
-            onPress={() => this._changeTest('PageLoad')}
-          />
-          <Button
-            testID="testType_downloads"
-            title="Downloads"
-            onPress={() => this._changeTest('Downloads')}
-          />
+          <Button testID="testType_alerts" title="Alerts" onPress={() => this._changeTest('Alerts')} />
+          <Button testID="testType_snapshot" title="Snapshot" onPress={() => this._changeTest('Snapshot')} />
+          <Button testID="testType_scrolling" title="Scrolling" onPress={() => this._changeTest('Scrolling')} />
+          <Button testID="testType_background" title="Background" onPress={() => this._changeTest('Background')} />
+          <Button testID="testType_injection" title="Injection" onPress={() => this._changeTest('Injection')} />
+          <Button testID="testType_pageLoad" title="LocalPageLoad" onPress={() => this._changeTest('PageLoad')} />
+          <Button testID="testType_downloads" title="Downloads" onPress={() => this._changeTest('Downloads')} />
           {(Platform.OS === 'android' || Platform.OS === 'macos') && (
             <Button
               testID="testType_uploads"
