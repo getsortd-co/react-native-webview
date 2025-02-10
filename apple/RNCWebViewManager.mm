@@ -202,6 +202,20 @@ RCT_EXPORT_METHOD(name:(nonnull NSNumber *)reactTag in_param)                   
   }];                                                                                                                                   \
 }
 
+RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+        RNCWebViewImpl *view = viewRegistry[reactTag];
+        if (![view isKindOfClass:[RNCWebViewImpl class]]) {
+            reject(@"invalid_view", @"The view is not a valid RNCWebView", nil);
+            return;
+        }
+        [view takeSnapshotAsyncWithResolver:resolve rejecter:reject];
+    }];
+}
+
 QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
 QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
 QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)

@@ -4,7 +4,7 @@ import React, {
   useImperativeHandle,
   useRef,
 } from 'react';
-import { Image, View, ImageSourcePropType, HostComponent } from 'react-native';
+import { Image, View, ImageSourcePropType, HostComponent, findNodeHandle } from 'react-native';
 import invariant from 'invariant';
 
 import RNCWebView, { Commands, NativeProps } from './RNCWebViewNativeComponent';
@@ -94,6 +94,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
     const webViewRef = useRef<React.ComponentRef<
       HostComponent<NativeProps>
     > | null>(null);
+    const nativeTagRef = useRef<number | null>(null);
+    const nativeInstanceRef = useRef<React.ComponentRef<HostComponent<NativeProps>> | null>(null);
 
     const onShouldStartLoadWithRequestCallback = useCallback(
       (shouldStart: boolean, _url: string, lockIdentifier = 0) => {
@@ -137,30 +139,55 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
 
     useImperativeHandle(
       ref,
-      () => ({
-        goForward: () =>
-          webViewRef.current && Commands.goForward(webViewRef.current),
-        goBack: () => webViewRef.current && Commands.goBack(webViewRef.current),
-        reload: () => {
-          setViewState('LOADING');
-          if (webViewRef.current) {
-            Commands.reload(webViewRef.current);
-          }
-        },
-        stopLoading: () =>
-          webViewRef.current && Commands.stopLoading(webViewRef.current),
-        postMessage: (data: string) =>
-          webViewRef.current && Commands.postMessage(webViewRef.current, data),
-        injectJavaScript: (data: string) =>
-          webViewRef.current &&
-          Commands.injectJavaScript(webViewRef.current, data),
-        requestFocus: () =>
-          webViewRef.current && Commands.requestFocus(webViewRef.current),
-        clearCache: (includeDiskFiles: boolean) =>
-          webViewRef.current &&
-          Commands.clearCache(webViewRef.current, includeDiskFiles),
-      }),
-      [setViewState, webViewRef]
+      () => {
+        const methods = {
+          ...(webViewRef.current || {}),
+          ...(nativeInstanceRef.current || {}),
+          getNativeInstance: () => nativeInstanceRef.current,
+          getNativeTag: () => nativeTagRef.current,
+          goForward: () =>
+            webViewRef.current && Commands.goForward(webViewRef.current),
+          goBack: () => webViewRef.current && Commands.goBack(webViewRef.current),
+          reload: () => {
+            setViewState('LOADING');
+            if (webViewRef.current) {
+              Commands.reload(webViewRef.current);
+            }
+          },
+          stopLoading: () =>
+            webViewRef.current && Commands.stopLoading(webViewRef.current),
+          postMessage: (data: string) =>
+            webViewRef.current && Commands.postMessage(webViewRef.current, data),
+          injectJavaScript: (data: string) =>
+            webViewRef.current &&
+            Commands.injectJavaScript(webViewRef.current, data),
+          requestFocus: () =>
+            webViewRef.current && Commands.requestFocus(webViewRef.current),
+          clearCache: (includeDiskFiles: boolean) =>
+            webViewRef.current &&
+            Commands.clearCache(webViewRef.current, includeDiskFiles),
+          getWebView: () => nativeInstanceRef.current,
+          takeSnapshot: () => {
+            console.log('\n\ninside snapshot:')
+            console.log("useImperativeHandle takeSnapshot |> webViewRef.current", webViewRef?.current)
+            console.log("useImperativeHandle takeSnapshot |> nativeTagRef.current", nativeTagRef?.current)
+            console.log("useImperativeHandle takeSnapshot |> nativeInstanceRef.current", nativeInstanceRef?.current)
+            console.log("useImperativeHandle takeSnapshot |> webViewRef.current._nativeTag", (webViewRef?.current as any)?._nativeTag)
+            console.log("useImperativeHandle takeSnapshot |> ref", ref)
+            console.log("useImperativeHandle takeSnapshot |> ref.current", (ref as any)?.current)
+            console.log("useImperativeHandle takeSnapshot |> ref.current.getWebView", (ref as any)?.current?.getWebView())
+
+            if (nativeInstanceRef?.current) {
+              return Commands.takeSnapshot(nativeInstanceRef?.current);
+            }
+            return Promise.reject(new Error('WebView is not available'));
+          },
+        }
+        console.log('Imperative handle methods:', Object.keys(methods))
+        return methods
+      },
+
+      [setViewState, webViewRef, nativeInstanceRef, nativeTagRef]
     );
 
     useWarnIfChanges(allowsInlineMediaPlayback, 'allowsInlineMediaPlayback');
@@ -208,24 +235,24 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
     const newSource =
       typeof sourceResolved === 'object'
         ? Object.entries(sourceResolved as WebViewSourceUri).reduce(
-            (prev, [currKey, currValue]) => {
-              return {
-                ...prev,
-                [currKey]:
-                  currKey === 'headers' &&
+          (prev, [currKey, currValue]) => {
+            return {
+              ...prev,
+              [currKey]:
+                currKey === 'headers' &&
                   currValue &&
                   typeof currValue === 'object'
-                    ? Object.entries(currValue).map(([key, value]) => {
-                        return {
-                          name: key,
-                          value,
-                        };
-                      })
-                    : currValue,
-              };
-            },
-            {}
-          )
+                  ? Object.entries(currValue).map(([key, value]) => {
+                    return {
+                      name: key,
+                      value,
+                    };
+                  })
+                  : currValue,
+            };
+          },
+          {}
+        )
         : sourceResolved;
 
     const webView = (
@@ -275,7 +302,12 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         newSource={newSource}
         style={webViewStyles}
         hasOnFileDownload={!!onFileDownload}
-        ref={webViewRef}
+        // ref={webViewRef}
+        ref={(node) => {
+          webViewRef.current = node;
+          nativeInstanceRef.current = node;
+          nativeTagRef.current = node ? findNodeHandle(node) : null
+        }}
         // @ts-expect-error old arch only
         source={sourceResolved}
         {...nativeConfig?.props}

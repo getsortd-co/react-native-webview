@@ -24,6 +24,8 @@ type WebViewCommands =
 
 type AndroidWebViewCommands = 'clearHistory' | 'clearFormData';
 
+type iosWebViewCommands = 'takeSnapshot'
+
 interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
   getViewManagerConfig: (name: string) => {
     Commands: { [key in Commands]: number };
@@ -33,7 +35,7 @@ interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
 export type RNCWebViewUIManagerAndroid = RNCWebViewUIManager<
   WebViewCommands | AndroidWebViewCommands
 >;
-export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands>;
+export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands | iosWebViewCommands>;
 export type RNCWebViewUIManagerMacOS = RNCWebViewUIManager<WebViewCommands>;
 export type RNCWebViewUIManagerWindows = RNCWebViewUIManager<WebViewCommands>;
 
@@ -57,15 +59,15 @@ export type State = NormalState | ErrorState;
 
 type Constructor<T> = new (...args: any[]) => T;
 
-declare class NativeWebViewMacOSComponent extends Component<MacOSNativeWebViewProps> {}
+declare class NativeWebViewMacOSComponent extends Component<MacOSNativeWebViewProps> { }
 declare const NativeWebViewMacOSBase: Constructor<NativeMethodsMixin> &
   typeof NativeWebViewMacOSComponent;
-export class NativeWebViewMacOS extends NativeWebViewMacOSBase {}
+export class NativeWebViewMacOS extends NativeWebViewMacOSBase { }
 
-declare class NativeWebViewWindowsComponent extends Component<WindowsNativeWebViewProps> {}
+declare class NativeWebViewWindowsComponent extends Component<WindowsNativeWebViewProps> { }
 declare const NativeWebViewWindowsBase: Constructor<NativeMethodsMixin> &
   typeof NativeWebViewWindowsComponent;
-export class NativeWebViewWindows extends NativeWebViewWindowsBase {}
+export class NativeWebViewWindows extends NativeWebViewWindowsBase { }
 
 export interface ContentInsetProp {
   top?: number;
@@ -89,12 +91,12 @@ export interface WebViewNativeProgressEvent extends WebViewNativeEvent {
 
 export interface WebViewNavigation extends WebViewNativeEvent {
   navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  | 'click'
+  | 'formsubmit'
+  | 'backforward'
+  | 'reload'
+  | 'formresubmit'
+  | 'other';
   mainDocumentURL?: string;
 }
 

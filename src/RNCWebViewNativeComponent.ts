@@ -74,12 +74,12 @@ export type WebViewNavigationEvent = Readonly<{
   canGoForward: boolean;
   lockIdentifier: Double;
   navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  | 'click'
+  | 'formsubmit'
+  | 'backforward'
+  | 'reload'
+  | 'formresubmit'
+  | 'other';
   mainDocumentURL?: string;
 }>;
 
@@ -91,12 +91,12 @@ export type ShouldStartLoadRequestEvent = Readonly<{
   canGoForward: boolean;
   lockIdentifier: Double;
   navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  | 'click'
+  | 'formsubmit'
+  | 'backforward'
+  | 'reload'
+  | 'formresubmit'
+  | 'other';
   mainDocumentURL?: string;
   isTopFrame: boolean;
 }>;
@@ -319,6 +319,9 @@ export interface NativeCommands {
   ) => void;
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
+  // iOS Only
+  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => Promise<string>;
+  // !iOS Only
 }
 
 export const Commands = codegenNativeCommands<NativeCommands>({
@@ -334,6 +337,7 @@ export const Commands = codegenNativeCommands<NativeCommands>({
     'clearFormData',
     'clearCache',
     'clearHistory',
+    'takeSnapshot',
   ],
 });
 

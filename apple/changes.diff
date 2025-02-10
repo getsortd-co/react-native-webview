@@ -1,0 +1,687 @@
+diff --git a/apple/RNCWebViewImpl.h b/apple/RNCWebViewImpl.h
+index e19fddd..d86faa8 100644
+--- a/apple/RNCWebViewImpl.h
++++ b/apple/RNCWebViewImpl.h
+@@ -9,6 +9,7 @@
+ #import <React/RCTDefines.h>
+ #import <WebKit/WKDataDetectorTypes.h>
+ #import <WebKit/WebKit.h>
++#import <React/RCTBridgeModule.h>
+ 
+ #if !TARGET_OS_OSX
+ #import <UIKit/UIScrollView.h>
+@@ -155,6 +156,12 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
+ - (void)addPullToRefreshControl;
+ - (void)pullToRefresh:(UIRefreshControl *)refreshControl;
+ #endif
++#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
++- (UIView *)getWebView;
++#endif
++#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
++- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject;
++#endif
+ 
+ @end
+ 
+diff --git a/apple/RNCWebViewImpl.m b/apple/RNCWebViewImpl.m
+index fb35885..1650459 100644
+--- a/apple/RNCWebViewImpl.m
++++ b/apple/RNCWebViewImpl.m
+@@ -1732,6 +1732,38 @@ - (void)setInjectedJavaScriptBeforeContentLoadedForMainFrameOnly:(BOOL)mainFrame
+   [self setInjectedJavaScriptBeforeContentLoaded:_injectedJavaScriptBeforeContentLoaded];
+ }
+ 
++- (UIView *)getWebView {
++  return _webView;
++}
++
++- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
++  if (@available(iOS 11.0, *)) {
++    if (!_webView) {
++      reject(@"no_webview", @"No WebView instance available", nil);
++      return;
++    }
++    WKSnapshotConfiguration *config = [[WKSnapshotConfiguration alloc] init];
++    CGRect bounds = _webView.bounds;
++    // For example, capture an area that is twice as high as the current bounds.
++    config.rect = CGRectMake(0, 0, bounds.size.width, bounds.size.height * 2);
++    [_webView takeSnapshotWithConfiguration:config completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
++      if (error) {
++        reject(@"snapshot_error", @"Error taking snapshot", error);
++        return;
++      }
++      if (!snapshotImage) {
++        reject(@"snapshot_error", @"No image returned", nil);
++        return;
++      }
++      NSData *imageData = UIImagePNGRepresentation(snapshotImage);
++      NSString *base64String = [imageData base64EncodedStringWithOptions:0];
++      resolve(base64String);
++    }];
++  } else {
++    reject(@"unsupported_ios", @"iOS 11 or above is required", nil);
++  }
++}
++
+ - (void)setMessagingEnabled:(BOOL)messagingEnabled {
+   _messagingEnabled = messagingEnabled;
+ 
+diff --git a/apple/RNCWebViewManager.mm b/apple/RNCWebViewManager.mm
+index a0e0d00..d103d01 100644
+--- a/apple/RNCWebViewManager.mm
++++ b/apple/RNCWebViewManager.mm
+@@ -202,6 +202,20 @@ - (RNCView *)view
+   }];                                                                                                                                   \
+ }
+ 
++RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
++                  resolver:(RCTPromiseResolveBlock)resolve
++                  rejecter:(RCTPromiseRejectBlock)reject)
++{
++    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
++        RNCWebViewImpl *view = viewRegistry[reactTag];
++        if (![view isKindOfClass:[RNCWebViewImpl class]]) {
++            reject(@"invalid_view", @"The view is not a valid RNCWebView", nil);
++            return;
++        }
++        [view takeSnapshotAsyncWithResolver:resolve rejecter:reject];
++    }];
++}
++
+ QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
+ QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
+diff --git a/example/App.tsx b/example/App.tsx
+index b2dd6fa..cff1bf0 100644
+--- a/example/App.tsx
++++ b/example/App.tsx
+@@ -1,16 +1,8 @@
+ import React, { Component } from 'react';
+-import {
+-  StyleSheet,
+-  SafeAreaView,
+-  Text,
+-  TouchableOpacity,
+-  View,
+-  Keyboard,
+-  Button,
+-  Platform,
+-} from 'react-native';
++import { StyleSheet, SafeAreaView, Text, TouchableOpacity, View, Keyboard, Button, Platform } from 'react-native';
+ 
+ import Alerts from './examples/Alerts';
++import Snapshot from './examples/Snapshot';
+ import Scrolling from './examples/Scrolling';
+ import Background from './examples/Background';
+ import Downloads from './examples/Downloads';
+@@ -51,6 +43,14 @@ const TESTS = {
+       return <Alerts />;
+     },
+   },
++  Snapshot: {
++    title: 'Snapshot',
++    testId: 'snapshot',
++    description: 'Snapshot tests',
++    render() {
++      return <Snapshot />;
++    },
++  },
+   Scrolling: {
+     title: 'Scrolling',
+     testId: 'scrolling',
+@@ -162,9 +162,7 @@ export default class App extends Component<Props, State> {
+   };
+ 
+   _simulateRestart = () => {
+-    this.setState({ restarting: true }, () =>
+-      this.setState({ restarting: false }),
+-    );
++    this.setState({ restarting: true }, () => this.setState({ restarting: false }));
+   };
+ 
+   _changeTest = (testName) => {
+@@ -175,11 +173,7 @@ export default class App extends Component<Props, State> {
+     const { restarting, currentTest } = this.state;
+     return (
+       <SafeAreaView style={styles.container}>
+-        <TouchableOpacity
+-          style={styles.closeKeyboardView}
+-          onPress={() => Keyboard.dismiss()}
+-          testID="closeKeyboard"
+-        />
++        <TouchableOpacity style={styles.closeKeyboardView} onPress={() => Keyboard.dismiss()} testID="closeKeyboard" />
+ 
+         <TouchableOpacity
+           testID="restart_button"
+@@ -191,48 +185,17 @@ export default class App extends Component<Props, State> {
+         </TouchableOpacity>
+ 
+         <View style={styles.testPickerContainer}>
+-          <Button
+-            testID="testType_alerts"
+-            title="Alerts"
+-            onPress={() => this._changeTest('Alerts')}
+-          />
+-          <Button
+-            testID="testType_scrolling"
+-            title="Scrolling"
+-            onPress={() => this._changeTest('Scrolling')}
+-          />
+-          <Button
+-            testID="testType_background"
+-            title="Background"
+-            onPress={() => this._changeTest('Background')}
+-          />
+-          <Button
+-            testID="testType_injection"
+-            title="Injection"
+-            onPress={() => this._changeTest('Injection')}
+-          />
+-          <Button
+-            testID="testType_pageLoad"
+-            title="LocalPageLoad"
+-            onPress={() => this._changeTest('PageLoad')}
+-          />
+-          <Button
+-            testID="testType_downloads"
+-            title="Downloads"
+-            onPress={() => this._changeTest('Downloads')}
+-          />
++          <Button testID="testType_alerts" title="Alerts" onPress={() => this._changeTest('Alerts')} />
++          <Button testID="testType_snapshot" title="Snapshot" onPress={() => this._changeTest('Snapshot')} />
++          <Button testID="testType_scrolling" title="Scrolling" onPress={() => this._changeTest('Scrolling')} />
++          <Button testID="testType_background" title="Background" onPress={() => this._changeTest('Background')} />
++          <Button testID="testType_injection" title="Injection" onPress={() => this._changeTest('Injection')} />
++          <Button testID="testType_pageLoad" title="LocalPageLoad" onPress={() => this._changeTest('PageLoad')} />
++          <Button testID="testType_downloads" title="Downloads" onPress={() => this._changeTest('Downloads')} />
+           {(Platform.OS === 'android' || Platform.OS === 'macos') && (
+-            <Button
+-              testID="testType_uploads"
+-              title="Uploads"
+-              onPress={() => this._changeTest('Uploads')}
+-            />
++            <Button testID="testType_uploads" title="Uploads" onPress={() => this._changeTest('Uploads')} />
+           )}
+-          <Button
+-            testID="testType_messaging"
+-            title="Messaging"
+-            onPress={() => this._changeTest('Messaging')}
+-          />
++          <Button testID="testType_messaging" title="Messaging" onPress={() => this._changeTest('Messaging')} />
+           <Button
+             testID="testType_multimessaging"
+             title="MultiMessaging"
+@@ -244,47 +207,23 @@ export default class App extends Component<Props, State> {
+             onPress={() => this._changeTest('NativeWebpage')}
+           />
+           {Platform.OS === 'ios' && (
+-            <Button
+-              testID="testType_applePay"
+-              title="ApplePay"
+-              onPress={() => this._changeTest('ApplePay')}
+-            />
++            <Button testID="testType_applePay" title="ApplePay" onPress={() => this._changeTest('ApplePay')} />
+           )}
+-          <Button
+-            testID="testType_customMenu"
+-            title="CustomMenu"
+-            onPress={() => this._changeTest('CustomMenu')}
+-          />
+-          <Button
+-            testID="testType_openwindow"
+-            title="OpenWindow"
+-            onPress={() => this._changeTest('OpenWindow')}
+-          />
++          <Button testID="testType_customMenu" title="CustomMenu" onPress={() => this._changeTest('CustomMenu')} />
++          <Button testID="testType_openwindow" title="OpenWindow" onPress={() => this._changeTest('OpenWindow')} />
+           <Button
+             testID="testType_suppressMenuItems"
+             title="SuppressMenuItems"
+             onPress={() => this._changeTest('SuppressMenuItems')}
+           />
+-          <Button
+-            testID="testType_clearData"
+-            title="ClearData"
+-            onPress={() => this._changeTest('ClearData')}
+-          />
++          <Button testID="testType_clearData" title="ClearData" onPress={() => this._changeTest('ClearData')} />
+         </View>
+ 
+         {restarting ? null : (
+-          <View
+-            testID={`example-${currentTest.testId}`}
+-            key={currentTest.title}
+-            style={styles.exampleContainer}
+-          >
++          <View testID={`example-${currentTest.testId}`} key={currentTest.title} style={styles.exampleContainer}>
+             <Text style={styles.exampleTitle}>{currentTest.title}</Text>
+-            <Text style={styles.exampleDescription}>
+-              {currentTest.description}
+-            </Text>
+-            <View style={styles.exampleInnerContainer}>
+-              {currentTest.render()}
+-            </View>
++            <Text style={styles.exampleDescription}>{currentTest.description}</Text>
++            <View style={styles.exampleInnerContainer}>{currentTest.render()}</View>
+           </View>
+         )}
+       </SafeAreaView>
+diff --git a/example/ios/.xcode.env b/example/ios/.xcode.env
+index eb9bfc7..14699b4 100644
+--- a/example/ios/.xcode.env
++++ b/example/ios/.xcode.env
+@@ -1 +1 @@
+-export NODE_BINARY=/usr/local/bin//node
++export NODE_BINARY=/Users/adam/.nvm/versions/node/v20.12.1/bin/node
+diff --git a/example/ios/Podfile.lock b/example/ios/Podfile.lock
+index d48bf3c..4a0c5ff 100644
+--- a/example/ios/Podfile.lock
++++ b/example/ios/Podfile.lock
+@@ -852,7 +852,7 @@ PODS:
+   - React-Mapbuffer (0.73.5):
+     - glog
+     - React-debug
+-  - react-native-webview (13.10.0):
++  - react-native-webview (13.13.2):
+     - glog
+     - RCT-Folly (= 2022.05.16.00)
+     - React-Core
+@@ -1224,7 +1224,7 @@ SPEC CHECKSUMS:
+   React-jsinspector: 32db5e364bcae8fca8cdf8891830636275add0c5
+   React-logger: 0331362115f0f5b392bd7ed14636d1a3ea612479
+   React-Mapbuffer: 7c35cd53a22d0be04d3f26f7881c7fb7dd230216
+-  react-native-webview: 39288780069589ffd4d6912e327a52b11ff31513
++  react-native-webview: b20263fe41234d8c182530f7a1901f38347c157a
+   React-nativeconfig: 1166714a4f7ea57a0df5c2cb44fbc70f98d580f9
+   React-NativeModulesApple: 461b7a216dffdcfcae46afeba2e0859a78eef71e
+   React-perflogger: 0dd9f1725d55f8264b81efadd373fe1d9cca7dc2
+@@ -1249,8 +1249,8 @@ SPEC CHECKSUMS:
+   ReactTestApp-DevSupport: f845db38b4b4ce8d341f8acdba934ee85ed3d7b2
+   ReactTestApp-Resources: 857244f3a23f2b3157b364fa06cf3e8866deff9c
+   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
+-  Yoga: a716eea57d0d3430219c0a5a233e1e93ee931eb7
++  Yoga: 9e6a04eacbd94f97d94577017e9f23b3ab41cf6c
+ 
+ PODFILE CHECKSUM: 19337ee55318f4be2ce28403e0af2628c2b41ce1
+ 
+-COCOAPODS: 1.14.3
++COCOAPODS: 1.16.2
+diff --git a/index.d.ts b/index.d.ts
+index 394b444..b8164d2 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -2,64 +2,70 @@ import { Component } from 'react';
+ // eslint-disable-next-line
+ import { IOSWebViewProps, AndroidWebViewProps, WindowsWebViewProps } from './lib/WebViewTypes';
+ 
+-export { FileDownload, WebViewMessageEvent, WebViewNavigation } from "./lib/WebViewTypes";
++export { FileDownload, WebViewMessageEvent, WebViewNavigation } from './lib/WebViewTypes';
+ 
+ export type WebViewProps = IOSWebViewProps & AndroidWebViewProps & WindowsWebViewProps;
+ 
+ declare class WebView<P = {}> extends Component<WebViewProps & P> {
+-    /**
+-     * Go back one page in the webview's history.
+-     */
+-    goBack: () => void;
++  /**
++   * Go back one page in the webview's history.
++   */
++  goBack: () => void;
+ 
+-    /**
+-     * Go forward one page in the webview's history.
+-     */
+-    goForward: () => void;
++  /**
++   * Go forward one page in the webview's history.
++   */
++  goForward: () => void;
+ 
+-    /**
+-     * Reloads the current page.
+-     */
+-    reload: () => void;
++  /**
++   * Reloads the current page.
++   */
++  reload: () => void;
+ 
+-    /**
+-     * Stop loading the current page.
+-     */
+-    stopLoading(): void;
++  /**
++   * Stop loading the current page.
++   */
++  stopLoading(): void;
+ 
+-    /**
+-     * Executes the JavaScript string.
+-     */
+-    injectJavaScript: (script: string) => void;
++  /**
++   * Executes the JavaScript string.
++   */
++  injectJavaScript: (script: string) => void;
+ 
+-    /**
+-     * Focuses on WebView redered page.
+-     */
+-    requestFocus: () => void;
+-    
+-     /**
+-     * Posts a message to WebView.
+-     */
+-    postMessage: (message: string) => void;
+-    
+-     /**
+-     * (Android only)
+-     * Removes the autocomplete popup from the currently focused form field, if present.
+-     */
+-    clearFormData?: () => void;
++  /**
++   * Focuses on WebView redered page.
++   */
++  requestFocus: () => void;
+ 
+-     /**
+-     * (Android only)
+-     * Clears the resource cache. Note that the cache is per-application, so this will clear the cache for all WebViews used.
+-     */
+-    clearCache?: (clear: boolean) => void;
++  /**
++   * Posts a message to WebView.
++   */
++  postMessage: (message: string) => void;
+ 
+-     /**
+-     * (Android only)
+-     * Tells this WebView to clear its internal back/forward list.
+-     */
+-    clearHistory?: () => void;
++  /**
++   * (Android only)
++   * Removes the autocomplete popup from the currently focused form field, if present.
++   */
++  clearFormData?: () => void;
++
++  /**
++   * (Android only)
++   * Clears the resource cache. Note that the cache is per-application, so this will clear the cache for all WebViews used.
++   */
++  clearCache?: (clear: boolean) => void;
++
++  /**
++   * (Android only)
++   * Tells this WebView to clear its internal back/forward list.
++   */
++  clearHistory?: () => void;
++
++  /**
++   * (iOS only)
++   * Tells this WebView to capture a snapshot of 2x the viewport height
++   */
++  takeSnapshot?: () => Promise<string>;
+ }
+ 
+-export {WebView};
++export { WebView };
+ export default WebView;
+diff --git a/src/RNCWebViewNativeComponent.ts b/src/RNCWebViewNativeComponent.ts
+index e2ddd36..0cc4b68 100644
+--- a/src/RNCWebViewNativeComponent.ts
++++ b/src/RNCWebViewNativeComponent.ts
+@@ -74,12 +74,12 @@ export type WebViewNavigationEvent = Readonly<{
+   canGoForward: boolean;
+   lockIdentifier: Double;
+   navigationType:
+-    | 'click'
+-    | 'formsubmit'
+-    | 'backforward'
+-    | 'reload'
+-    | 'formresubmit'
+-    | 'other';
++  | 'click'
++  | 'formsubmit'
++  | 'backforward'
++  | 'reload'
++  | 'formresubmit'
++  | 'other';
+   mainDocumentURL?: string;
+ }>;
+ 
+@@ -91,12 +91,12 @@ export type ShouldStartLoadRequestEvent = Readonly<{
+   canGoForward: boolean;
+   lockIdentifier: Double;
+   navigationType:
+-    | 'click'
+-    | 'formsubmit'
+-    | 'backforward'
+-    | 'reload'
+-    | 'formresubmit'
+-    | 'other';
++  | 'click'
++  | 'formsubmit'
++  | 'backforward'
++  | 'reload'
++  | 'formresubmit'
++  | 'other';
+   mainDocumentURL?: string;
+   isTopFrame: boolean;
+ }>;
+@@ -319,6 +319,9 @@ export interface NativeCommands {
+   ) => void;
+   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
+   // !Android Only
++  // iOS Only
++  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => Promise<string>;
++  // !iOS Only
+ }
+ 
+ export const Commands = codegenNativeCommands<NativeCommands>({
+@@ -334,6 +337,7 @@ export const Commands = codegenNativeCommands<NativeCommands>({
+     'clearFormData',
+     'clearCache',
+     'clearHistory',
++    'takeSnapshot'
+   ],
+ });
+ 
+diff --git a/src/WebView.ios.tsx b/src/WebView.ios.tsx
+index deb179b..80e5269 100644
+--- a/src/WebView.ios.tsx
++++ b/src/WebView.ios.tsx
+@@ -4,7 +4,7 @@ import React, {
+   useImperativeHandle,
+   useRef,
+ } from 'react';
+-import { Image, View, ImageSourcePropType, HostComponent } from 'react-native';
++import { Image, View, ImageSourcePropType, HostComponent, findNodeHandle } from 'react-native';
+ import invariant from 'invariant';
+ 
+ import RNCWebView, { Commands, NativeProps } from './RNCWebViewNativeComponent';
+@@ -137,29 +137,46 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+ 
+     useImperativeHandle(
+       ref,
+-      () => ({
+-        goForward: () =>
+-          webViewRef.current && Commands.goForward(webViewRef.current),
+-        goBack: () => webViewRef.current && Commands.goBack(webViewRef.current),
+-        reload: () => {
+-          setViewState('LOADING');
+-          if (webViewRef.current) {
+-            Commands.reload(webViewRef.current);
+-          }
+-        },
+-        stopLoading: () =>
+-          webViewRef.current && Commands.stopLoading(webViewRef.current),
+-        postMessage: (data: string) =>
+-          webViewRef.current && Commands.postMessage(webViewRef.current, data),
+-        injectJavaScript: (data: string) =>
+-          webViewRef.current &&
+-          Commands.injectJavaScript(webViewRef.current, data),
+-        requestFocus: () =>
+-          webViewRef.current && Commands.requestFocus(webViewRef.current),
+-        clearCache: (includeDiskFiles: boolean) =>
+-          webViewRef.current &&
+-          Commands.clearCache(webViewRef.current, includeDiskFiles),
+-      }),
++      () => {
++        const methods = {
++          goForward: () =>
++            webViewRef.current && Commands.goForward(webViewRef.current),
++          goBack: () => webViewRef.current && Commands.goBack(webViewRef.current),
++          reload: () => {
++            setViewState('LOADING');
++            if (webViewRef.current) {
++              Commands.reload(webViewRef.current);
++            }
++          },
++          stopLoading: () =>
++            webViewRef.current && Commands.stopLoading(webViewRef.current),
++          postMessage: (data: string) =>
++            webViewRef.current && Commands.postMessage(webViewRef.current, data),
++          injectJavaScript: (data: string) =>
++            webViewRef.current &&
++            Commands.injectJavaScript(webViewRef.current, data),
++          requestFocus: () =>
++            webViewRef.current && Commands.requestFocus(webViewRef.current),
++          clearCache: (includeDiskFiles: boolean) =>
++            webViewRef.current &&
++            Commands.clearCache(webViewRef.current, includeDiskFiles),
++          takeSnapshot: () => {
++            if (webViewRef.current && typeof (webViewRef.current as any).getWebView === 'function') {
++              // Get the underlying native view.
++              const nativeComponent = (webViewRef.current as any).getWebView();
++              const nativeTag = nativeComponent ? findNodeHandle(nativeComponent) : null;
++              if (nativeTag == null) {
++                return Promise.reject(new Error('Native tag is null'));
++              }
++              return Commands.takeSnapshot(nativeTag as any);
++            }
++            return Promise.reject(new Error('Native WebView is not available'));
++          },
++        }
++        console.log('Imperative handle methods:', Object.keys(methods))
++        return methods
++      },
++
+       [setViewState, webViewRef]
+     );
+ 
+@@ -208,24 +225,24 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+     const newSource =
+       typeof sourceResolved === 'object'
+         ? Object.entries(sourceResolved as WebViewSourceUri).reduce(
+-            (prev, [currKey, currValue]) => {
+-              return {
+-                ...prev,
+-                [currKey]:
+-                  currKey === 'headers' &&
++          (prev, [currKey, currValue]) => {
++            return {
++              ...prev,
++              [currKey]:
++                currKey === 'headers' &&
+                   currValue &&
+                   typeof currValue === 'object'
+-                    ? Object.entries(currValue).map(([key, value]) => {
+-                        return {
+-                          name: key,
+-                          value,
+-                        };
+-                      })
+-                    : currValue,
+-              };
+-            },
+-            {}
+-          )
++                  ? Object.entries(currValue).map(([key, value]) => {
++                    return {
++                      name: key,
++                      value,
++                    };
++                  })
++                  : currValue,
++            };
++          },
++          {}
++        )
+         : sourceResolved;
+ 
+     const webView = (
+@@ -275,7 +292,10 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
+         newSource={newSource}
+         style={webViewStyles}
+         hasOnFileDownload={!!onFileDownload}
+-        ref={webViewRef}
++        // ref={webViewRef}
++        ref={(node) => {
++          webViewRef.current = node;
++        }}
+         // @ts-expect-error old arch only
+         source={sourceResolved}
+         {...nativeConfig?.props}
+diff --git a/src/WebViewTypes.ts b/src/WebViewTypes.ts
+index c8e017e..a78b369 100644
+--- a/src/WebViewTypes.ts
++++ b/src/WebViewTypes.ts
+@@ -24,6 +24,8 @@ type WebViewCommands =
+ 
+ type AndroidWebViewCommands = 'clearHistory' | 'clearFormData';
+ 
++type iosWebViewCommands = 'takeSnapshot'
++
+ interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
+   getViewManagerConfig: (name: string) => {
+     Commands: { [key in Commands]: number };
+@@ -33,7 +35,7 @@ interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
+ export type RNCWebViewUIManagerAndroid = RNCWebViewUIManager<
+   WebViewCommands | AndroidWebViewCommands
+ >;
+-export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands>;
++export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands | iosWebViewCommands>;
+ export type RNCWebViewUIManagerMacOS = RNCWebViewUIManager<WebViewCommands>;
+ export type RNCWebViewUIManagerWindows = RNCWebViewUIManager<WebViewCommands>;
+ 
+@@ -57,15 +59,15 @@ export type State = NormalState | ErrorState;
+ 
+ type Constructor<T> = new (...args: any[]) => T;
+ 
+-declare class NativeWebViewMacOSComponent extends Component<MacOSNativeWebViewProps> {}
++declare class NativeWebViewMacOSComponent extends Component<MacOSNativeWebViewProps> { }
+ declare const NativeWebViewMacOSBase: Constructor<NativeMethodsMixin> &
+   typeof NativeWebViewMacOSComponent;
+-export class NativeWebViewMacOS extends NativeWebViewMacOSBase {}
++export class NativeWebViewMacOS extends NativeWebViewMacOSBase { }
+ 
+-declare class NativeWebViewWindowsComponent extends Component<WindowsNativeWebViewProps> {}
++declare class NativeWebViewWindowsComponent extends Component<WindowsNativeWebViewProps> { }
+ declare const NativeWebViewWindowsBase: Constructor<NativeMethodsMixin> &
+   typeof NativeWebViewWindowsComponent;
+-export class NativeWebViewWindows extends NativeWebViewWindowsBase {}
++export class NativeWebViewWindows extends NativeWebViewWindowsBase { }
+ 
+ export interface ContentInsetProp {
+   top?: number;
+@@ -89,12 +91,12 @@ export interface WebViewNativeProgressEvent extends WebViewNativeEvent {
+ 
+ export interface WebViewNavigation extends WebViewNativeEvent {
+   navigationType:
+-    | 'click'
+-    | 'formsubmit'
+-    | 'backforward'
+-    | 'reload'
+-    | 'formresubmit'
+-    | 'other';
++  | 'click'
++  | 'formsubmit'
++  | 'backforward'
++  | 'reload'
++  | 'formresubmit'
++  | 'other';
+   mainDocumentURL?: string;
+ }
+ 

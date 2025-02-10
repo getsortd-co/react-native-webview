@@ -9,6 +9,7 @@
 #import <React/RCTDefines.h>
 #import <WebKit/WKDataDetectorTypes.h>
 #import <WebKit/WebKit.h>
+#import <React/RCTBridgeModule.h>
 
 #if !TARGET_OS_OSX
 #import <UIKit/UIScrollView.h>
@@ -154,6 +155,12 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 #if !TARGET_OS_OSX
 - (void)addPullToRefreshControl;
 - (void)pullToRefresh:(UIRefreshControl *)refreshControl;
+#endif
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+- (UIView *)getWebView;
+#endif
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject;
 #endif
 
 @end

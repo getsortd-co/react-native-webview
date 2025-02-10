@@ -1732,6 +1732,38 @@ didFinishNavigation:(WKNavigation *)navigation
   [self setInjectedJavaScriptBeforeContentLoaded:_injectedJavaScriptBeforeContentLoaded];
 }
 
+- (UIView *)getWebView {
+  return _webView;
+}
+
+- (void)takeSnapshotAsyncWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+  if (@available(iOS 11.0, *)) {
+    if (!_webView) {
+      reject(@"no_webview", @"No WebView instance available", nil);
+      return;
+    }
+    WKSnapshotConfiguration *config = [[WKSnapshotConfiguration alloc] init];
+    CGRect bounds = _webView.bounds;
+    // For example, capture an area that is twice as high as the current bounds.
+    config.rect = CGRectMake(0, 0, bounds.size.width, bounds.size.height * 2);
+    [_webView takeSnapshotWithConfiguration:config completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (error) {
+        reject(@"snapshot_error", @"Error taking snapshot", error);
+        return;
+      }
+      if (!snapshotImage) {
+        reject(@"snapshot_error", @"No image returned", nil);
+        return;
+      }
+      NSData *imageData = UIImagePNGRepresentation(snapshotImage);
+      NSString *base64String = [imageData base64EncodedStringWithOptions:0];
+      resolve(base64String);
+    }];
+  } else {
+    reject(@"unsupported_ios", @"iOS 11 or above is required", nil);
+  }
+}
+
 - (void)setMessagingEnabled:(BOOL)messagingEnabled {
   _messagingEnabled = messagingEnabled;
 
