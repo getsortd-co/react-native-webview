@@ -1,14 +1,5 @@
 import React, { Component } from 'react';
-import {
-  StyleSheet,
-  SafeAreaView,
-  Text,
-  TouchableOpacity,
-  View,
-  Keyboard,
-  Button,
-  Platform,
-} from 'react-native';
+import { StyleSheet, SafeAreaView, Text, TouchableOpacity, View, Keyboard, Button, Platform } from 'react-native';
 
 import Alerts from './examples/Alerts';
 import Scrolling from './examples/Scrolling';
@@ -25,6 +16,7 @@ import CustomMenu from './examples/CustomMenu';
 import OpenWindow from './examples/OpenWindow';
 import SuppressMenuItems from './examples/Suppress';
 import ClearData from './examples/ClearData';
+import Snapshot from './examples/Snapshot';
 
 const TESTS = {
   Messaging: {
@@ -139,6 +131,14 @@ const TESTS = {
       return <OpenWindow />;
     },
   },
+  Snapshot: {
+    title: 'Snapshot',
+    testId: 'Snapshot',
+    description: 'Snapshot tests',
+    render() {
+      return <Snapshot />;
+    },
+  },
   SuppressMenuItems: {
     title: 'SuppressMenuItems',
     testId: 'SuppressMenuItems',
@@ -162,9 +162,7 @@ export default class App extends Component<Props, State> {
   };
 
   _simulateRestart = () => {
-    this.setState({ restarting: true }, () =>
-      this.setState({ restarting: false }),
-    );
+    this.setState({ restarting: true }, () => this.setState({ restarting: false }));
   };
 
   _changeTest = (testName) => {
@@ -175,11 +173,7 @@ export default class App extends Component<Props, State> {
     const { restarting, currentTest } = this.state;
     return (
       <SafeAreaView style={styles.container}>
-        <TouchableOpacity
-          style={styles.closeKeyboardView}
-          onPress={() => Keyboard.dismiss()}
-          testID="closeKeyboard"
-        />
+        <TouchableOpacity style={styles.closeKeyboardView} onPress={() => Keyboard.dismiss()} testID="closeKeyboard" />
 
         <TouchableOpacity
           testID="restart_button"
@@ -191,48 +185,16 @@ export default class App extends Component<Props, State> {
         </TouchableOpacity>
 
         <View style={styles.testPickerContainer}>
-          <Button
-            testID="testType_alerts"
-            title="Alerts"
-            onPress={() => this._changeTest('Alerts')}
-          />
-          <Button
-            testID="testType_scrolling"
-            title="Scrolling"
-            onPress={() => this._changeTest('Scrolling')}
-          />
-          <Button
-            testID="testType_background"
-            title="Background"
-            onPress={() => this._changeTest('Background')}
-          />
-          <Button
-            testID="testType_injection"
-            title="Injection"
-            onPress={() => this._changeTest('Injection')}
-          />
-          <Button
-            testID="testType_pageLoad"
-            title="LocalPageLoad"
-            onPress={() => this._changeTest('PageLoad')}
-          />
-          <Button
-            testID="testType_downloads"
-            title="Downloads"
-            onPress={() => this._changeTest('Downloads')}
-          />
+          <Button testID="testType_alerts" title="Alerts" onPress={() => this._changeTest('Alerts')} />
+          <Button testID="testType_scrolling" title="Scrolling" onPress={() => this._changeTest('Scrolling')} />
+          <Button testID="testType_background" title="Background" onPress={() => this._changeTest('Background')} />
+          <Button testID="testType_injection" title="Injection" onPress={() => this._changeTest('Injection')} />
+          <Button testID="testType_pageLoad" title="LocalPageLoad" onPress={() => this._changeTest('PageLoad')} />
+          <Button testID="testType_downloads" title="Downloads" onPress={() => this._changeTest('Downloads')} />
           {(Platform.OS === 'android' || Platform.OS === 'macos') && (
-            <Button
-              testID="testType_uploads"
-              title="Uploads"
-              onPress={() => this._changeTest('Uploads')}
-            />
+            <Button testID="testType_uploads" title="Uploads" onPress={() => this._changeTest('Uploads')} />
           )}
-          <Button
-            testID="testType_messaging"
-            title="Messaging"
-            onPress={() => this._changeTest('Messaging')}
-          />
+          <Button testID="testType_messaging" title="Messaging" onPress={() => this._changeTest('Messaging')} />
           <Button
             testID="testType_multimessaging"
             title="MultiMessaging"
@@ -244,47 +206,24 @@ export default class App extends Component<Props, State> {
             onPress={() => this._changeTest('NativeWebpage')}
           />
           {Platform.OS === 'ios' && (
-            <Button
-              testID="testType_applePay"
-              title="ApplePay"
-              onPress={() => this._changeTest('ApplePay')}
-            />
+            <Button testID="testType_applePay" title="ApplePay" onPress={() => this._changeTest('ApplePay')} />
           )}
-          <Button
-            testID="testType_customMenu"
-            title="CustomMenu"
-            onPress={() => this._changeTest('CustomMenu')}
-          />
-          <Button
-            testID="testType_openwindow"
-            title="OpenWindow"
-            onPress={() => this._changeTest('OpenWindow')}
-          />
+          <Button testID="testType_customMenu" title="CustomMenu" onPress={() => this._changeTest('CustomMenu')} />
+          <Button testID="testType_openwindow" title="OpenWindow" onPress={() => this._changeTest('OpenWindow')} />
           <Button
             testID="testType_suppressMenuItems"
             title="SuppressMenuItems"
             onPress={() => this._changeTest('SuppressMenuItems')}
           />
-          <Button
-            testID="testType_clearData"
-            title="ClearData"
-            onPress={() => this._changeTest('ClearData')}
-          />
+          <Button testID="testType_clearData" title="ClearData" onPress={() => this._changeTest('ClearData')} />
+          <Button testID="testType_snapshot" title="Snapshot" onPress={() => this._changeTest('Snapshot')} />
         </View>
 
         {restarting ? null : (
-          <View
-            testID={`example-${currentTest.testId}`}
-            key={currentTest.title}
-            style={styles.exampleContainer}
-          >
+          <View testID={`example-${currentTest.testId}`} key={currentTest.title} style={styles.exampleContainer}>
             <Text style={styles.exampleTitle}>{currentTest.title}</Text>
-            <Text style={styles.exampleDescription}>
-              {currentTest.description}
-            </Text>
-            <View style={styles.exampleInnerContainer}>
-              {currentTest.render()}
-            </View>
+            <Text style={styles.exampleDescription}>{currentTest.description}</Text>
+            <View style={styles.exampleInnerContainer}>{currentTest.render()}</View>
           </View>
         )}
       </SafeAreaView>
