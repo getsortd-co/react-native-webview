@@ -1653,7 +1653,7 @@ didFinishNavigation:(WKNavigation *)navigation
   [self removeData:dataTypes];
 }
 
-- (void)takeSnapshot:(NSString *)filename
+- (void)takeSnapshot
 {
   if (@available(iOS 11.0, *)) {
     if (_webView == nil) {
@@ -1662,7 +1662,7 @@ didFinishNavigation:(WKNavigation *)navigation
     [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
       if (snapshotImage != nil) {
         // Scale Image
-        CGFloat scaleFactor = 0.65;
+        CGFloat scaleFactor = 0.4;
         CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
 
         // Create a new context to draw the resized image.
@@ -1671,16 +1671,17 @@ didFinishNavigation:(WKNavigation *)navigation
         UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
         UIGraphicsEndImageContext();
 
-        // Compress Image
+        // Compress Image using JPEG representation (quality: 0.5).
         NSData *imageData = UIImageJPEGRepresentation(resizedImage, 0.5);
 
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-        NSString *documentsDirectory = [paths objectAtIndex:0];
-        NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
-        [imageData writeToFile:filePath atomically:YES];
+        // Convert the image data to a base64 encoded string.
+        // Optionally, you can prepend "data:image/jpeg;base64," if needed.
+        NSString *base64String = [imageData base64EncodedStringWithOptions:0];
 
+        // Create your event payload with the base64 string.
         NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-        [snapshotEvent addEntriesFromDictionary:@{ @"filepath": filePath }];
+        [snapshotEvent addEntriesFromDictionary:@{ @"base64": base64String }];
+
         if (_onSnapshotCreated) {
           _onSnapshotCreated(snapshotEvent);
         }

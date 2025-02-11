@@ -1,10 +1,6 @@
 import React, { Component } from 'react';
 import { View, Button } from 'react-native';
-import WebView, { WebViewSnapshotEvent } from '../../src/WebView';
-
-// TODO: move this event elsewhere
-
-// import WebView from 'react-native-webview';
+import WebView, { WebViewSnapshotEvent } from 'react-native-webview';
 
 export default class Snapshot extends Component {
   constructor(props) {
@@ -24,9 +20,7 @@ export default class Snapshot extends Component {
     this.setState({ webViewHeight: 1200 }, () => {
       // After state has been updated, call takeSnapshot.
       setTimeout(async () => {
-        console.log('In timeout');
-        const res = await this.webView.current.takeSnapshot('foo11.png');
-        console.log('res', res);
+        this.webView.current.takeSnapshot();
       }, 300);
     });
   };
@@ -42,7 +36,7 @@ export default class Snapshot extends Component {
       <View style={{ height: webViewHeight }}>
         <WebView
           ref={this.webView}
-          source={{ url: 'https://www.google.com' }}
+          source={{ url: 'https://vehla.com/collections/homepage/products/river-tort-sky?pb=0' }}
           automaticallyAdjustContentInsets={false}
           onSnapshotCreated={this.onSnapShotCreated}
         />
