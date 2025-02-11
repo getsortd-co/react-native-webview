@@ -1676,11 +1676,11 @@ didFinishNavigation:(WKNavigation *)navigation
 
         // Convert the image data to a base64 encoded string.
         // Optionally, you can prepend "data:image/jpeg;base64," if needed.
-        NSString *base64String = [imageData base64EncodedStringWithOptions:0];
+        NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
 
         // Create your event payload with the base64 string.
         NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-        [snapshotEvent addEntriesFromDictionary:@{ @"base64": base64String }];
+        [snapshotEvent addEntriesFromDictionary:@{ @"base64": dataURL }];
 
         if (_onSnapshotCreated) {
           _onSnapshotCreated(snapshotEvent);
