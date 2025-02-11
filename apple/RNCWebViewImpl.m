@@ -1662,7 +1662,7 @@ didFinishNavigation:(WKNavigation *)navigation
     [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
       if (snapshotImage != nil) {
         // Scale Image
-        CGFloat scaleFactor = 0.4;
+        CGFloat scaleFactor = 0.5;
         CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
 
         // Create a new context to draw the resized image.
