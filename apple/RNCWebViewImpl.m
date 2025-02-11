@@ -1657,19 +1657,31 @@ didFinishNavigation:(WKNavigation *)navigation
 {
   if (@available(iOS 11.0, *)) {
     if (_webView == nil) {
-        return;
+      return;
     }
     [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
       if (snapshotImage != nil) {
+        // Scale Image
+        CGFloat scaleFactor = 0.65;
+        CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
+
+        // Create a new context to draw the resized image.
+        UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
+        [snapshotImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+        UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+
+        // Compress Image
+        NSData *imageData = UIImageJPEGRepresentation(resizedImage, 0.5);
+
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
         NSString *filePath = [documentsDirectory stringByAppendingPathComponent:filename];
-        [UIImagePNGRepresentation(snapshotImage) writeToFile:filePath atomically:YES];
+        [imageData writeToFile:filePath atomically:YES];
+
         NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-        [snapshotEvent addEntriesFromDictionary: @{
-          @"filepath": filePath,
-        }];
-        if(_onSnapshotCreated) {
+        [snapshotEvent addEntriesFromDictionary:@{ @"filepath": filePath }];
+        if (_onSnapshotCreated) {
           _onSnapshotCreated(snapshotEvent);
         }
       }
