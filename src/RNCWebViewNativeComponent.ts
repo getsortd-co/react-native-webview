@@ -1,11 +1,6 @@
 import type { HostComponent, ViewProps } from 'react-native';
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
-import {
-  DirectEventHandler,
-  Double,
-  Int32,
-  WithDefault,
-} from 'react-native/Libraries/Types/CodegenTypes';
+import { DirectEventHandler, Double, Int32, WithDefault } from 'react-native/Libraries/Types/CodegenTypes';
 import codegenNativeCommands from 'react-native/Libraries/Utilities/codegenNativeCommands';
 
 export type WebViewNativeEvent = Readonly<{
@@ -73,13 +68,7 @@ export type WebViewNavigationEvent = Readonly<{
   canGoBack: boolean;
   canGoForward: boolean;
   lockIdentifier: Double;
-  navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  navigationType: 'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other';
   mainDocumentURL?: string;
 }>;
 
@@ -90,13 +79,7 @@ export type ShouldStartLoadRequestEvent = Readonly<{
   canGoBack: boolean;
   canGoForward: boolean;
   lockIdentifier: Double;
-  navigationType:
-    | 'click'
-    | 'formsubmit'
-    | 'backforward'
-    | 'reload'
-    | 'formresubmit'
-    | 'other';
+  navigationType: 'click' | 'formsubmit' | 'backforward' | 'reload' | 'formresubmit' | 'other';
   mainDocumentURL?: string;
   isTopFrame: boolean;
 }>;
@@ -149,10 +132,7 @@ export interface NativeProps extends ViewProps {
   allowsFullscreenVideo?: boolean;
   androidLayerType?: WithDefault<'none' | 'software' | 'hardware', 'none'>;
   cacheMode?: WithDefault<
-    | 'LOAD_DEFAULT'
-    | 'LOAD_CACHE_ELSE_NETWORK'
-    | 'LOAD_NO_CACHE'
-    | 'LOAD_CACHE_ONLY',
+    'LOAD_DEFAULT' | 'LOAD_CACHE_ELSE_NETWORK' | 'LOAD_NO_CACHE' | 'LOAD_CACHE_ONLY',
     'LOAD_DEFAULT'
   >;
   domStorageEnabled?: boolean;
@@ -194,14 +174,8 @@ export interface NativeProps extends ViewProps {
     bottom?: Double;
     right?: Double;
   }>;
-  contentInsetAdjustmentBehavior?: WithDefault<
-    'never' | 'automatic' | 'scrollableAxes' | 'always',
-    'never'
-  >;
-  contentMode?: WithDefault<
-    'recommended' | 'mobile' | 'desktop',
-    'recommended'
-  >;
+  contentInsetAdjustmentBehavior?: WithDefault<'never' | 'automatic' | 'scrollableAxes' | 'always', 'never'>;
+  contentMode?: WithDefault<'recommended' | 'mobile' | 'desktop', 'recommended'>;
   dataDetectorTypes?: WithDefault<
     ReadonlyArray<
       | 'address'
@@ -223,11 +197,7 @@ export interface NativeProps extends ViewProps {
   keyboardDisplayRequiresUserAction?: boolean;
   limitsNavigationsToAppBoundDomains?: boolean;
   mediaCapturePermissionGrantType?: WithDefault<
-    | 'prompt'
-    | 'grant'
-    | 'deny'
-    | 'grantIfSameHostElsePrompt'
-    | 'grantIfSameHostElseDeny',
+    'prompt' | 'grant' | 'deny' | 'grantIfSameHostElsePrompt' | 'grantIfSameHostElseDeny',
     'prompt'
   >;
   pagingEnabled?: boolean;
@@ -296,29 +266,18 @@ export interface NativeCommands {
   goForward: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   reload: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   stopLoading: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
-  injectJavaScript: (
-    viewRef: React.ElementRef<HostComponent<NativeProps>>,
-    javascript: string
-  ) => void;
+  injectJavaScript: (viewRef: React.ElementRef<HostComponent<NativeProps>>, javascript: string) => void;
   requestFocus: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
-  postMessage: (
-    viewRef: React.ElementRef<HostComponent<NativeProps>>,
-    data: string
-  ) => void;
+  postMessage: (viewRef: React.ElementRef<HostComponent<NativeProps>>, data: string) => void;
   // Android Only
-  loadUrl: (
-    viewRef: React.ElementRef<HostComponent<NativeProps>>,
-    url: string
-  ) => void;
-  clearFormData: (
-    viewRef: React.ElementRef<HostComponent<NativeProps>>
-  ) => void;
-  clearCache: (
-    viewRef: React.ElementRef<HostComponent<NativeProps>>,
-    includeDiskFiles: boolean
-  ) => void;
+  loadUrl: (viewRef: React.ElementRef<HostComponent<NativeProps>>, url: string) => void;
+  clearFormData: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
+  clearCache: (viewRef: React.ElementRef<HostComponent<NativeProps>>, includeDiskFiles: boolean) => void;
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
+  // iOS only
+  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
+  // !iOS Only
 }
 
 export const Commands = codegenNativeCommands<NativeCommands>({
@@ -334,9 +293,8 @@ export const Commands = codegenNativeCommands<NativeCommands>({
     'clearFormData',
     'clearCache',
     'clearHistory',
+    'takeSnapshot',
   ],
 });
 
-export default codegenNativeComponent<NativeProps>(
-  'RNCWebView'
-) as HostComponent<NativeProps>;
+export default codegenNativeComponent<NativeProps>('RNCWebView') as HostComponent<NativeProps>;

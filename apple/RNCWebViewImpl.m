@@ -9,6 +9,7 @@
 #import <React/RCTConvert.h>
 #import <React/RCTAutoInsetsProtocol.h>
 #import "RNCWKProcessPoolManager.h"
+#import <React/RCTBridgeModule.h>
 #if !TARGET_OS_OSX
 #import <UIKit/UIKit.h>
 #else
@@ -1650,6 +1651,43 @@ didFinishNavigation:(WKNavigation *)navigation
     ]];
   }
   [self removeData:dataTypes];
+}
+
+- (void)takeSnapshot
+{
+  if (@available(iOS 11.0, *)) {
+    if (_webView == nil) {
+      return;
+    }
+    [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (snapshotImage != nil) {
+        // Scale Image
+        CGFloat scaleFactor = 0.5;
+        CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
+
+        // Create a new context to draw the resized image.
+        UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
+        [snapshotImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+        UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+        UIGraphicsEndImageContext();
+
+        // Compress Image using JPEG representation (quality: 0.5).
+        NSData *imageData = UIImageJPEGRepresentation(resizedImage, 0.5);
+
+        // Convert the image data to a base64 encoded string.
+        // Optionally, you can prepend "data:image/jpeg;base64," if needed.
+        NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
+
+        // Create your event payload with the base64 string.
+        NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
+        [snapshotEvent addEntriesFromDictionary:@{ @"base64": dataURL }];
+
+        if (_onSnapshotCreated) {
+          _onSnapshotCreated(snapshotEvent);
+        }
+      }
+    }];
+  }
 }
 
 - (void)removeData:(NSSet *)dataTypes
