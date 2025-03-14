@@ -162,9 +162,13 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         clearCache: (includeDiskFiles: boolean) =>
           webViewRef.current &&
           Commands.clearCache(webViewRef.current, includeDiskFiles),
-        takeSnapshot: () =>
-          webViewRef.current
-          && Commands.takeSnapshot(webViewRef.current),
+        takeSnapshot: (options?: { scale?: number; quality?: number }) =>
+          webViewRef.current &&
+          Commands.takeSnapshot(
+            webViewRef.current,
+            options?.scale ?? 0.5,
+            options?.quality ?? 0.5
+          ),
       }),
       [setViewState, webViewRef]
     );

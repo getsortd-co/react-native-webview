@@ -323,7 +323,11 @@ export interface NativeCommands {
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
   // iOS only
-  takeSnapshot: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
+  takeSnapshot: (
+    viewRef: React.ElementRef<HostComponent<NativeProps>>,
+    scale: Double,
+    quality: Double
+  ) => void;
   // !iOS Only
 }
 

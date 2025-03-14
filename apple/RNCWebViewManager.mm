@@ -213,14 +213,19 @@ QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(postMessage, message:(NSString *)message,
 QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(injectJavaScript, script:(NSString *)script, script)
 QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(clearCache, includeDiskFiles:(BOOL)includeDiskFiles, includeDiskFiles)
 
-RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag)
+RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
+                scale:(nonnull NSNumber *)scale
+                quality:(nonnull NSNumber *)quality)
 {
     [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
         RNCWebViewImpl *view = (RNCWebViewImpl *)viewRegistry[reactTag];
         if (![view isKindOfClass:[RNCWebViewImpl class]]) {
             RCTLogError(@"Invalid view returned from registry, expecting RNCWebViewImpl, got: %@", view);
         } else {
-            [view takeSnapshot];
+            NSMutableDictionary *options = [NSMutableDictionary dictionary];
+            options[@"scale"] = scale;
+            options[@"quality"] = quality;
+            [view takeSnapshotWithOptions:options];
         }
     }];
 }

@@ -117,6 +117,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 #if !TARGET_OS_OSX
 @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 @property (nonatomic, weak) UIRefreshControl * _Nullable refreshControl;
+@property (nonatomic, strong) NSDictionary * _Nullable snapshotOptions;
 #endif
 
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */
@@ -151,6 +152,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 - (void)requestFocus;
 - (void)clearCache:(BOOL)includeDiskFiles;
 - (void)takeSnapshot;
+- (void)takeSnapshotWithOptions:(NSDictionary *)options;
 #ifdef RCT_NEW_ARCH_ENABLED
 - (void)destroyWebView;
 #endif

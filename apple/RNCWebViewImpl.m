@@ -181,6 +181,7 @@ RCTAutoInsetsProtocol>
     _injectedJavaScriptForMainFrameOnly = YES;
     _injectedJavaScriptBeforeContentLoaded = nil;
     _injectedJavaScriptBeforeContentLoadedForMainFrameOnly = YES;
+    _snapshotOptions = @{@"scale": @(0.5), @"quality": @(0.5)};
     _enableApplePay = NO;
 #if TARGET_OS_IOS
     _savedStatusBarStyle = RCTSharedApplication().statusBarStyle;
@@ -880,6 +881,22 @@ RCTAutoInsetsProtocol>
 -(void)setMenuItems:(NSArray<NSDictionary *> *)menuItems {
     _menuItems = menuItems;
     _webView.menuItems = menuItems;
+}
+
+-(void)setSnapshotOptions:(NSDictionary *)snapshotOptions {
+    if (snapshotOptions == nil) {
+        _snapshotOptions = @{@"scale": @(0.5), @"quality": @(0.5)};
+    } else {
+        // Ensure we have default values for scale and quality if not provided
+        NSMutableDictionary *options = [NSMutableDictionary dictionaryWithDictionary:snapshotOptions];
+        if ([options objectForKey:@"scale"] == nil) {
+            [options setObject:@(0.5) forKey:@"scale"];
+        }
+        if ([options objectForKey:@"quality"] == nil) {
+            [options setObject:@(0.5) forKey:@"quality"];
+        }
+        _snapshotOptions = [options copy];
+    }
 }
 
 -(void)setSuppressMenuItems:(NSArray<NSString *> *)suppressMenuItems {
@@ -1668,6 +1685,12 @@ didFinishNavigation:(WKNavigation *)navigation
 
 - (void)takeSnapshot
 {
+  // Call the method with default options
+  [self takeSnapshotWithOptions:self.snapshotOptions];
+}
+
+- (void)takeSnapshotWithOptions:(NSDictionary *)options
+{
   if (@available(iOS 11.0, *)) {
     if (_webView == nil) {
       if (_onSnapshotCreated) {
@@ -1680,12 +1703,32 @@ didFinishNavigation:(WKNavigation *)navigation
       }
       return;
     }
+    
+    // Set default values
+    CGFloat scaleFactor = 0.5;
+    CGFloat quality = 0.5;
+    
+    // Get values from options if provided
+    if (options != nil) {
+      NSNumber *scaleNumber = [options objectForKey:@"scale"];
+      if (scaleNumber != nil) {
+        scaleFactor = [scaleNumber floatValue];
+      }
+      
+      NSNumber *qualityNumber = [options objectForKey:@"quality"];
+      if (qualityNumber != nil) {
+        quality = [qualityNumber floatValue];
+      }
+    }
+    
+    RCTLogInfo(@"WebView snapshot - Initial parameters: scale=%f, quality=%f", scaleFactor, quality);
+    
     [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
       NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
       
       if (snapshotImage != nil) {
         // Scale Image
-        CGFloat scaleFactor = 0.5;
+        RCTLogInfo(@"WebView snapshot - Original image size: width=%f, height=%f", snapshotImage.size.width, snapshotImage.size.height);
         CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
 
         // Create a new context to draw the resized image.
@@ -1694,8 +1737,11 @@ didFinishNavigation:(WKNavigation *)navigation
         UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
         UIGraphicsEndImageContext();
 
-        // Compress Image using JPEG representation (quality: 0.5).
-        NSData *imageData = UIImageJPEGRepresentation(resizedImage, 0.5);
+        // Compress Image using JPEG representation with the specified quality.
+        NSData *imageData = UIImageJPEGRepresentation(resizedImage, quality);
+        
+        RCTLogInfo(@"WebView snapshot - Resized image size: width=%f, height=%f", newSize.width, newSize.height);
+        RCTLogInfo(@"WebView snapshot - Final image data size: %lu bytes", (unsigned long)[imageData length]);
 
         // Convert the image data to a base64 encoded string.
         NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];

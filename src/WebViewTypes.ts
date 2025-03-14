@@ -777,6 +777,10 @@ export interface IOSWebViewProps extends WebViewSharedProps {
    * @platform ios
    */
   fraudulentWebsiteWarningEnabled?: boolean;
+  /**
+   * Function that is invoked when a snapshot is created.
+   * @platform ios
+   */
   onSnapshotCreated?: (event: WebViewSnapshotResultEvent) => void;
 }
 

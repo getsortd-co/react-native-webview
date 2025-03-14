@@ -64,7 +64,7 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
      * (iOS only)
      * Captures visible content as image
      */
-    takeSnapshot?: () => void;
+    takeSnapshot?: (options?: { scale?: number; quality?: number }) => void;
 }
 
 export {WebView};
