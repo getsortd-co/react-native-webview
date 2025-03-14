@@ -23,6 +23,7 @@ type WebViewCommands =
   | 'clearCache';
 
 type AndroidWebViewCommands = 'clearHistory' | 'clearFormData';
+type IOSWebViewCommands = 'takeSnapshot';
 
 interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
   getViewManagerConfig: (name: string) => {
@@ -33,7 +34,9 @@ interface RNCWebViewUIManager<Commands extends string> extends UIManagerStatic {
 export type RNCWebViewUIManagerAndroid = RNCWebViewUIManager<
   WebViewCommands | AndroidWebViewCommands
 >;
-export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<WebViewCommands>;
+export type RNCWebViewUIManagerIOS = RNCWebViewUIManager<
+  WebViewCommands | IOSWebViewCommands
+>;
 export type RNCWebViewUIManagerMacOS = RNCWebViewUIManager<WebViewCommands>;
 export type RNCWebViewUIManagerWindows = RNCWebViewUIManager<WebViewCommands>;
 
@@ -111,6 +114,44 @@ export type DecelerationRateConstant = 'normal' | 'fast';
 export interface WebViewMessage extends WebViewNativeEvent {
   data: string;
 }
+export type SnapshotFormat = 'base64' | 'file';
+
+export interface SnapshotOptions {
+  /**
+   * The scaling factor to apply to the snapshot (between 0 and 1)
+   * @default 1.0
+   */
+  scaling?: number;
+  /**
+   * The quality of the image compression (between 0 and 1)
+   * @default 0.8
+   */
+  quality?: number;
+  /**
+   * The format to save the snapshot in
+   * @default 'base64'
+   */
+  format?: SnapshotFormat;
+}
+
+export interface WebViewSnapshotEvent extends NativeSyntheticEvent<{
+  url: string;
+  loading: boolean;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  lockIdentifier: number;
+  /**
+   * Base64 encoded image data
+   * Present when format is 'base64'
+   */
+  data?: string;
+  /**
+   * Path to the saved image file
+   * Present when format is 'file'
+   */
+  filePath?: string;
+}> {}
 
 export interface WebViewError extends WebViewNativeEvent {
   /**
@@ -762,6 +803,18 @@ export interface IOSWebViewProps extends WebViewSharedProps {
    * @platform ios
    */
   fraudulentWebsiteWarningEnabled?: boolean;
+  /**
+   * Function that is invoked when the snapshot is created.
+   * The event contains either a base64 encoded image or a filepath to the saved image depending on snapshot options.
+   * @platform ios
+   */
+  onSnapshotCreated?: (event: WebViewSnapshotEvent) => void;
+
+  /**
+   * Configuration options for when taking snapshots of the WebView.
+   * @platform ios
+   */
+  snapshotOptions?: SnapshotOptions;
 }
 
 export interface MacOSWebViewProps extends WebViewSharedProps {

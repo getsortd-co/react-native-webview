@@ -5,5 +5,16 @@
     "javascriptreact",
     "typescript",
     "typescriptreact"
-  ]
+  ],
+  "editor.formatOnSave": false,
+  "editor.defaultFormatter": null,
+  "[javascript]": {
+    "editor.defaultFormatter": null,
+  },
+  "prettier.enable": false,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "never",
+    "source.fixAll.eslint": "never",
+    "source.fixAll.stylelint": "never"
+  }
 }

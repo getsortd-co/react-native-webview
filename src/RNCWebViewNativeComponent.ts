@@ -142,6 +142,24 @@ type WebViewDownloadEvent = Readonly<{
 
 // type MenuItem = Readonly<{label: string, key: string}>;
 
+export type SnapshotFormat = 'base64' | 'file';
+
+export interface SnapshotOptions {
+  scaling?: number;
+  quality?: number;
+  format?: SnapshotFormat;
+}
+
+export type WebViewSnapshotEvent = Readonly<{
+  url: string;
+  loading: boolean;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  lockIdentifier: Double;
+  data?: string;     // Base64 encoded data (when format is 'base64')
+  filePath?: string; // Path to saved file (when format is 'file')
+}>;
 export interface NativeProps extends ViewProps {
   // Android only
   allowFileAccess?: boolean;
@@ -240,6 +258,7 @@ export interface NativeProps extends ViewProps {
   onContentProcessDidTerminate?: DirectEventHandler<WebViewNativeEvent>;
   onCustomMenuSelection?: DirectEventHandler<WebViewCustomMenuSelectionEvent>;
   onFileDownload?: DirectEventHandler<WebViewDownloadEvent>;
+  onSnapshotCreated?: DirectEventHandler<WebViewSnapshotEvent>;
 
   menuItems?: ReadonlyArray<Readonly<{ label: string; key: string }>>;
   suppressMenuItems?: Readonly<string>[];
@@ -319,6 +338,14 @@ export interface NativeCommands {
   ) => void;
   clearHistory: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
   // !Android Only
+  // iOS only
+  takeSnapshot: (
+    viewRef: React.ElementRef<HostComponent<NativeProps>>,
+    scaling: Double,
+    quality: Double,
+    format: string
+  ) => void;
+  // !iOS Only
 }
 
 export const Commands = codegenNativeCommands<NativeCommands>({
@@ -334,6 +361,7 @@ export const Commands = codegenNativeCommands<NativeCommands>({
     'clearFormData',
     'clearCache',
     'clearHistory',
+    'takeSnapshot',
   ],
 });
 

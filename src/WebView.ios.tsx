@@ -20,6 +20,7 @@ import {
   IOSWebViewProps,
   DecelerationRateConstant,
   WebViewSourceUri,
+  SnapshotOptions,
 } from './WebViewTypes';
 
 import styles from './WebView.styles';
@@ -73,6 +74,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onHttpError: onHttpErrorProp,
       onMessage: onMessageProp,
       onOpenWindow: onOpenWindowProp,
+      onSnapshotCreated: onSnapshotCreatedProp,
       renderLoading,
       renderError,
       style,
@@ -118,6 +120,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onLoadingProgress,
       onOpenWindow,
       onContentProcessDidTerminate,
+      onSnapshotCreated,
     } = useWebViewLogic({
       onNavigationStateChange,
       onLoad,
@@ -133,6 +136,7 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
       onShouldStartLoadWithRequestProp,
       onShouldStartLoadWithRequestCallback,
       onContentProcessDidTerminateProp,
+      onSnapshotCreatedProp,
     });
 
     useImperativeHandle(
@@ -159,6 +163,14 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         clearCache: (includeDiskFiles: boolean) =>
           webViewRef.current &&
           Commands.clearCache(webViewRef.current, includeDiskFiles),
+        takeSnapshot: (options: SnapshotOptions = {}) => {
+          if (webViewRef.current) {
+            const scaling = options.scaling ?? 1.0;
+            const quality = options.quality ?? 0.8;
+            const format = options.format ?? 'base64';
+            return Commands.takeSnapshot(webViewRef.current, scaling, quality, format);
+          }
+        },
       }),
       [setViewState, webViewRef]
     );
@@ -278,6 +290,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
         ref={webViewRef}
         // @ts-expect-error old arch only
         source={sourceResolved}
+        onSnapshotCreated={onSnapshotCreatedProp && onSnapshotCreated}
+        snapshotOptions={otherProps.snapshotOptions}
         {...nativeConfig?.props}
       />
     );

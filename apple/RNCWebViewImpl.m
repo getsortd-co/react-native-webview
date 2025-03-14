@@ -9,6 +9,7 @@
 #import <React/RCTConvert.h>
 #import <React/RCTAutoInsetsProtocol.h>
 #import "RNCWKProcessPoolManager.h"
+#import <React/RCTBridgeModule.h>
 #if !TARGET_OS_OSX
 #import <UIKit/UIKit.h>
 #else
@@ -1650,6 +1651,95 @@ didFinishNavigation:(WKNavigation *)navigation
     ]];
   }
   [self removeData:dataTypes];
+}
+- (void)takeSnapshot
+{
+  [self takeSnapshotWithOptions:_snapshotOptions];
+}
+
+- (void)takeSnapshotWithOptions:(NSDictionary *)options
+{
+  if (@available(iOS 11.0, *)) {
+    if (_webView == nil) {
+      return;
+    }
+    
+    // Extract options or use defaults
+    CGFloat scaleFactor = options[@"scaling"] ? [options[@"scaling"] floatValue] : 0.5;
+    CGFloat jpegQuality = options[@"quality"] ? [options[@"quality"] floatValue] : 0.5;
+    NSString *format = options[@"format"] ? options[@"format"] : @"base64";
+    NSString *filePath = options[@"filePath"];
+    
+    // Configure WKSnapshotConfiguration if needed (for future enhancements)
+    WKSnapshotConfiguration *snapshotConfig = [[WKSnapshotConfiguration alloc] init];
+    
+    [_webView takeSnapshotWithConfiguration:snapshotConfig completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      if (error != nil) {
+        // Handle error
+        NSMutableDictionary<NSString *, id> *errorEvent = [self baseEvent];
+        [errorEvent addEntriesFromDictionary:@{
+          @"error": @{
+            @"code": @(error.code),
+            @"message": error.localizedDescription,
+            @"domain": error.domain
+          }
+        }];
+        
+        if (_onSnapshotCreated) {
+          _onSnapshotCreated(errorEvent);
+        }
+        return;
+      }
+      
+      if (snapshotImage != nil) {
+        // Process image based on options
+        UIImage *processedImage = snapshotImage;
+        
+        // Scale image if scaling factor is not 1.0
+        if (scaleFactor != 1.0) {
+          CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
+          UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
+          [snapshotImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+          processedImage = UIGraphicsGetImageFromCurrentImageContext();
+          UIGraphicsEndImageContext();
+        }
+        
+        // Compress Image using JPEG representation
+        NSData *imageData = UIImageJPEGRepresentation(processedImage, jpegQuality);
+        
+        // Create the response event
+        NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
+        
+        // Handle different output formats
+        if ([format isEqualToString:@"file"] && filePath.length > 0) {
+          // Save to file
+          NSError *fileError;
+          BOOL success = [imageData writeToFile:filePath options:NSDataWritingAtomic error:&fileError];
+          
+          if (success) {
+            [snapshotEvent addEntriesFromDictionary:@{ @"filePath": filePath }];
+          } else {
+            [snapshotEvent addEntriesFromDictionary:@{
+              @"error": @{
+                @"code": @(fileError.code),
+                @"message": fileError.localizedDescription,
+                @"domain": fileError.domain
+              }
+            }];
+          }
+        } else {
+          // Default: return base64 encoded string
+          NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
+          [snapshotEvent addEntriesFromDictionary:@{ @"base64": dataURL }];
+        }
+        
+        if (_onSnapshotCreated) {
+          _onSnapshotCreated(snapshotEvent);
+        }
+      }
+    }];
+  }
+}
 }
 
 - (void)removeData:(NSSet *)dataTypes
