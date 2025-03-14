@@ -114,8 +114,18 @@ export interface WebViewMessage extends WebViewNativeEvent {
 }
 
 export interface WebViewSnapshotEvent extends WebViewNativeEvent {
+  success: boolean;
   filepath: string;
 }
+
+export interface WebViewSnapshotErrorEvent extends WebViewNativeEvent {
+  success: false;
+  error: string;
+}
+
+export type WebViewSnapshotResultEvent =
+  | WebViewSnapshotEvent
+  | WebViewSnapshotErrorEvent;
 
 export interface WebViewError extends WebViewNativeEvent {
   /**
@@ -767,7 +777,7 @@ export interface IOSWebViewProps extends WebViewSharedProps {
    * @platform ios
    */
   fraudulentWebsiteWarningEnabled?: boolean;
-  onSnapshotCreated?: (event: WebViewSnapshotEvent) => void;
+  onSnapshotCreated?: (event: WebViewSnapshotResultEvent) => void;
 }
 
 export interface MacOSWebViewProps extends WebViewSharedProps {

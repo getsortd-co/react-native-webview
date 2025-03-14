@@ -1670,9 +1670,19 @@ didFinishNavigation:(WKNavigation *)navigation
 {
   if (@available(iOS 11.0, *)) {
     if (_webView == nil) {
+      if (_onSnapshotCreated) {
+        NSMutableDictionary<NSString *, id> *errorEvent = [self baseEvent];
+        [errorEvent addEntriesFromDictionary:@{
+          @"success": @NO,
+          @"error": @"WebView is not initialized"
+        }];
+        _onSnapshotCreated(errorEvent);
+      }
       return;
     }
     [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+      NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
+      
       if (snapshotImage != nil) {
         // Scale Image
         CGFloat scaleFactor = 0.5;
@@ -1688,18 +1698,43 @@ didFinishNavigation:(WKNavigation *)navigation
         NSData *imageData = UIImageJPEGRepresentation(resizedImage, 0.5);
 
         // Convert the image data to a base64 encoded string.
-        // Optionally, you can prepend "data:image/jpeg;base64," if needed.
         NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
 
-        // Create your event payload with the base64 string.
-        NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-        [snapshotEvent addEntriesFromDictionary:@{ @"base64": dataURL }];
-
-        if (_onSnapshotCreated) {
-          _onSnapshotCreated(snapshotEvent);
-        }
+        // Add success flag and base64 data to event payload
+        [snapshotEvent addEntriesFromDictionary:@{
+          @"success": @YES,
+          @"base64": dataURL
+        }];
+      } else if (error != nil) {
+        // Handle error case
+        [snapshotEvent addEntriesFromDictionary:@{
+          @"success": @NO,
+          @"error": error.localizedDescription,
+          @"code": @(error.code),
+          @"domain": error.domain
+        }];
+      } else {
+        // Edge case - neither image nor error
+        [snapshotEvent addEntriesFromDictionary:@{
+          @"success": @NO,
+          @"error": @"Unknown error occurred while taking snapshot"
+        }];
+      }
+      
+      if (_onSnapshotCreated) {
+        _onSnapshotCreated(snapshotEvent);
       }
     }];
+  } else {
+    // iOS version < 11.0
+    if (_onSnapshotCreated) {
+      NSMutableDictionary<NSString *, id> *errorEvent = [self baseEvent];
+      [errorEvent addEntriesFromDictionary:@{
+        @"success": @NO,
+        @"error": @"Snapshot feature requires iOS 11.0 or later"
+      }];
+      _onSnapshotCreated(errorEvent);
+    }
   }
 }
 
