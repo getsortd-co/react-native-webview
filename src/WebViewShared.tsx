@@ -14,6 +14,7 @@ import {
   WebViewProgressEvent,
   WebViewRenderProcessGoneEvent,
   WebViewTerminatedEvent,
+  WebViewSnapshotEvent,
 } from './WebViewTypes';
 import styles from './WebView.styles';
 
@@ -112,6 +113,7 @@ export const useWebViewLogic = ({
   originWhitelist,
   onShouldStartLoadWithRequestProp,
   onShouldStartLoadWithRequestCallback,
+  onSnapshotCreatedProp,
 }: {
   startInLoadingState?: boolean;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
@@ -132,6 +134,7 @@ export const useWebViewLogic = ({
     url: string,
     lockIdentifier?: number | undefined
   ) => void;
+  onSnapshotCreatedProp?: (event: WebViewSnapshotEvent) => void;
 }) => {
   const [viewState, setViewState] = useState<'IDLE' | 'LOADING' | 'ERROR'>(
     startInLoadingState ? 'LOADING' : 'IDLE'
@@ -265,6 +268,13 @@ export const useWebViewLogic = ({
     [onOpenWindowProp]
   );
 
+  const onSnapshotCreated = useCallback(
+    (event: WebViewSnapshotEvent) => {
+      onSnapshotCreatedProp?.(event);
+    },
+    [onSnapshotCreatedProp]
+  );
+
   return {
     onShouldStartLoadWithRequest,
     onLoadingStart,
@@ -279,5 +289,6 @@ export const useWebViewLogic = ({
     viewState,
     setViewState,
     lastErrorEvent,
+    onSnapshotCreated,
   };
 };

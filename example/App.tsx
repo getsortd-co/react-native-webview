@@ -25,6 +25,7 @@ import CustomMenu from './examples/CustomMenu';
 import OpenWindow from './examples/OpenWindow';
 import SuppressMenuItems from './examples/Suppress';
 import ClearData from './examples/ClearData';
+import Snapshot from './examples/Snapshot';
 
 const TESTS = {
   Messaging: {
@@ -137,6 +138,14 @@ const TESTS = {
     description: 'Test to intercept new window events',
     render() {
       return <OpenWindow />;
+    },
+  },
+  Snapshot: {
+    title: 'Snapshot',
+    testId: 'Snapshot',
+    description: 'Snapshot tests',
+    render() {
+      return <Snapshot />;
     },
   },
   SuppressMenuItems: {
@@ -269,6 +278,11 @@ export default class App extends Component<Props, State> {
             testID="testType_clearData"
             title="ClearData"
             onPress={() => this._changeTest('ClearData')}
+          />
+          <Button
+            testID="testType_snapshot" 
+            title="Snapshot" 
+            onPress={() => this._changeTest('Snapshot')} 
           />
         </View>
 
