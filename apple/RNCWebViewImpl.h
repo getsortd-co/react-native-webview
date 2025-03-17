@@ -118,6 +118,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 @property (nonatomic, weak) UIRefreshControl * _Nullable refreshControl;
 @property (nonatomic, strong) NSDictionary * _Nullable snapshotOptions;
+@property (nonatomic, copy) NSURL * _Nullable snapshotFileURL;
 #endif
 
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */

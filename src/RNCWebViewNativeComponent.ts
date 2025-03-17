@@ -326,7 +326,8 @@ export interface NativeCommands {
   takeSnapshot: (
     viewRef: React.ElementRef<HostComponent<NativeProps>>,
     scale: Double,
-    quality: Double
+    quality: Double,
+    saveToFile: boolean
   ) => void;
   // !iOS Only
 }

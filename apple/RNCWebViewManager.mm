@@ -215,7 +215,8 @@ QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(clearCache, includeDiskFiles:(BOOL)includ
 
 RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
                 scale:(nonnull NSNumber *)scale
-                quality:(nonnull NSNumber *)quality)
+                quality:(nonnull NSNumber *)quality
+                saveToFile:(BOOL)saveToFile)
 {
     [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
         RNCWebViewImpl *view = (RNCWebViewImpl *)viewRegistry[reactTag];
@@ -225,6 +226,7 @@ RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
             NSMutableDictionary *options = [NSMutableDictionary dictionary];
             options[@"scale"] = scale;
             options[@"quality"] = quality;
+            options[@"saveToFile"] = @(saveToFile);
             [view takeSnapshotWithOptions:options];
         }
     }];

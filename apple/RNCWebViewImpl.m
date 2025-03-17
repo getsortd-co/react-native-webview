@@ -127,6 +127,8 @@ RCTAutoInsetsProtocol>
 @property (nonatomic, strong) WKUserScript *injectedObjectJsonScript;
 @property (nonatomic, strong) WKUserScript *atStartScript;
 @property (nonatomic, strong) WKUserScript *atEndScript;
+// TODO: do we need this or not ?
+// @property (nonatomic, copy) NSURL *snapshotFileURL;
 @end
 
 @implementation RNCWebViewImpl
@@ -883,20 +885,97 @@ RCTAutoInsetsProtocol>
     _webView.menuItems = menuItems;
 }
 
--(void)setSnapshotOptions:(NSDictionary *)snapshotOptions {
+#pragma mark - Snapshot Methods
+
+- (void)setSnapshotOptions:(NSDictionary *)snapshotOptions {
     if (snapshotOptions == nil) {
-        _snapshotOptions = @{@"scale": @(0.5), @"quality": @(0.5)};
+        _snapshotOptions = @{
+            @"scale": @(0.5),
+            @"quality": @(0.7),
+            @"saveToFile": @(YES),
+            @"tempStorageMaxAge": @(3600)  // 1 hour by default
+        };
     } else {
-        // Ensure we have default values for scale and quality if not provided
         NSMutableDictionary *options = [NSMutableDictionary dictionaryWithDictionary:snapshotOptions];
-        if ([options objectForKey:@"scale"] == nil) {
-            [options setObject:@(0.5) forKey:@"scale"];
-        }
-        if ([options objectForKey:@"quality"] == nil) {
-            [options setObject:@(0.5) forKey:@"quality"];
-        }
+        if (options[@"scale"] == nil) [options setObject:@(0.5) forKey:@"scale"];
+        if (options[@"quality"] == nil) [options setObject:@(0.7) forKey:@"quality"];
+        if (options[@"saveToFile"] == nil) [options setObject:@(YES) forKey:@"saveToFile"];
+        if (options[@"tempStorageMaxAge"] == nil) [options setObject:@(3600) forKey:@"tempStorageMaxAge"];
         _snapshotOptions = [options copy];
     }
+}
+
+- (CGFloat)determineOptimalScaleFactorWithRequestedScale:(CGFloat)requestedScale {
+    NSUInteger totalMemory = [NSProcessInfo processInfo].physicalMemory;
+    CGFloat memoryAdjustedScale = requestedScale;
+    
+    if (totalMemory < 1500000000) { // < 1.5GB
+        memoryAdjustedScale = MIN(requestedScale, 0.3);
+        RCTLogInfo(@"Low memory device (%.1f GB): scale=%.2f", totalMemory/1000000000.0, memoryAdjustedScale);
+    } else if (totalMemory < 2500000000) { // < 2.5GB
+        memoryAdjustedScale = MIN(requestedScale, 0.5);
+        RCTLogInfo(@"Medium memory device (%.1f GB): scale=%.2f", totalMemory/1000000000.0, memoryAdjustedScale);
+    } else if (totalMemory < 4000000000) { // < 4GB
+        memoryAdjustedScale = MIN(requestedScale, 0.7);
+        RCTLogInfo(@"Standard memory device (%.1f GB): scale=%.2f", totalMemory/1000000000.0, memoryAdjustedScale);
+    } else {
+        memoryAdjustedScale = MIN(requestedScale, 0.9);
+        RCTLogInfo(@"High memory device (%.1f GB): scale=%.2f", totalMemory/1000000000.0, memoryAdjustedScale);
+    }
+    
+    return memoryAdjustedScale;
+}
+
+- (NSURL *)createTempFileURL {
+    NSString *filename = [NSString stringWithFormat:@"webview_snapshot_%@.jpg", [[NSUUID UUID] UUIDString]];
+    NSURL *tempFileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:filename]];
+    return tempFileURL;
+}
+
+- (void)cleanupTempFiles:(NSTimeInterval)maxAge {
+    @autoreleasepool {
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        NSURL *tempDir = [NSURL fileURLWithPath:NSTemporaryDirectory()];
+        NSError *error;
+        NSArray *contents = [fileManager contentsOfDirectoryAtURL:tempDir
+                                     includingPropertiesForKeys:@[NSURLCreationDateKey]
+                                                      options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                        error:&error];
+        
+        if (error) {
+            RCTLogError(@"Error scanning temp directory: %@", error);
+            return;
+        }
+        
+        NSDate *cutoffDate = [NSDate dateWithTimeIntervalSinceNow:-maxAge];
+        
+        for (NSURL *fileURL in contents) {
+            if ([fileURL.path containsString:@"webview_snapshot_"]) {
+                NSDate *creationDate;
+                [fileURL getResourceValue:&creationDate forKey:NSURLCreationDateKey error:nil];
+                
+                if ([creationDate compare:cutoffDate] == NSOrderedAscending) {
+                    [fileManager removeItemAtURL:fileURL error:nil];
+                    RCTLogInfo(@"Removed old snapshot: %@", fileURL.lastPathComponent);
+                }
+            }
+        }
+    }
+}
+
+- (void)sendSnapshotError:(NSString *)errorMessage {
+    if (self.onSnapshotCreated) {
+        NSMutableDictionary *event = [self baseEvent];
+        [event addEntriesFromDictionary:@{
+            @"success": @NO,
+            @"error": errorMessage
+        }];
+        self.onSnapshotCreated(event);
+    }
+}
+
+- (void)takeSnapshot {
+    [self takeSnapshotWithOptions:self.snapshotOptions];
 }
 
 -(void)setSuppressMenuItems:(NSArray<NSString *> *)suppressMenuItems {
@@ -1683,105 +1762,120 @@ didFinishNavigation:(WKNavigation *)navigation
   [self removeData:dataTypes];
 }
 
-- (void)takeSnapshot
-{
-  // Call the method with default options
-  [self takeSnapshotWithOptions:self.snapshotOptions];
+- (void)takeSnapshotWithOptions:(NSDictionary *)options {
+    if (@available(iOS 11.0, *)) {
+        if (_webView == nil) {
+            [self sendSnapshotError:@"WebView is not initialized"];
+            return;
+        }
+        
+        CGFloat requestedScale = options[@"scale"] ? [options[@"scale"] floatValue] : 0.5;
+        CGFloat quality = options[@"quality"] ? [options[@"quality"] floatValue] : 0.7;
+        BOOL saveToFile = options[@"saveToFile"] ? [options[@"saveToFile"] boolValue] : YES;
+        
+        CGFloat scaleFactor = [self determineOptimalScaleFactorWithRequestedScale:requestedScale];
+        
+        // Clean up old files in background
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
+            [self cleanupTempFiles:3600];
+        });
+        
+        __weak typeof(self) weakSelf = self;
+        
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            @autoreleasepool {
+                [weakSelf.webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
+                    if (error) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [weakSelf sendSnapshotError:error.localizedDescription];
+                        });
+                        return;
+                    }
+                    
+                    if (!snapshotImage) {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [weakSelf sendSnapshotError:@"Failed to capture snapshot"];
+                        });
+                        return;
+                    }
+                    
+                    @autoreleasepool {
+                        CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor,
+                                                  snapshotImage.size.height * scaleFactor);
+                        
+                        UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
+                        [snapshotImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+                        UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
+                        UIGraphicsEndImageContext();
+                        
+                        // Release original image
+                        snapshotImage = nil;
+                        
+                        if (!resizedImage) {
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [weakSelf sendSnapshotError:@"Failed to resize snapshot"];
+                            });
+                            return;
+                        }
+                        
+                        NSData *imageData = UIImageJPEGRepresentation(resizedImage, quality);
+                        
+                        if (saveToFile) {
+                            NSURL *fileURL = [weakSelf createTempFileURL];
+                            NSError *writeError;
+                            [imageData writeToURL:fileURL options:NSDataWritingAtomic error:&writeError];
+                            
+                            if (writeError) {
+                                dispatch_async(dispatch_get_main_queue(), ^{
+                                    [weakSelf sendSnapshotError:writeError.localizedDescription];
+                                });
+                                return;
+                            }
+                            
+                            weakSelf.snapshotFileURL = fileURL;
+                            
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                if (weakSelf.onSnapshotCreated) {
+                                    NSMutableDictionary *event = [weakSelf baseEvent];
+                                    [event addEntriesFromDictionary:@{
+                                        @"success": @YES,
+                                        @"fileUrl": fileURL.path,
+                                        @"width": @(newSize.width),
+                                        @"height": @(newSize.height)
+                                    }];
+                                    weakSelf.onSnapshotCreated(event);
+                                }
+                            });
+                        } else {
+                            NSString *base64String = [imageData base64EncodedStringWithOptions:0];
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                if (weakSelf.onSnapshotCreated) {
+                                    NSMutableDictionary *event = [weakSelf baseEvent];
+                                    [event addEntriesFromDictionary:@{
+                                        @"success": @YES,
+                                        @"base64": [NSString stringWithFormat:@"data:image/jpeg;base64,%@", base64String],
+                                        @"width": @(newSize.width),
+                                        @"height": @(newSize.height)
+                                    }];
+                                    weakSelf.onSnapshotCreated(event);
+                                }
+                            });
+                        }
+                        
+                        // Clean up
+                        resizedImage = nil;
+                        imageData = nil;
+                    }
+                }];
+            }
+        });
+    } else {
+        [self sendSnapshotError:@"Snapshot feature requires iOS 11.0 or later"];
+    }
 }
 
-- (void)takeSnapshotWithOptions:(NSDictionary *)options
-{
-  if (@available(iOS 11.0, *)) {
-    if (_webView == nil) {
-      if (_onSnapshotCreated) {
-        NSMutableDictionary<NSString *, id> *errorEvent = [self baseEvent];
-        [errorEvent addEntriesFromDictionary:@{
-          @"success": @NO,
-          @"error": @"WebView is not initialized"
-        }];
-        _onSnapshotCreated(errorEvent);
-      }
-      return;
-    }
-    
-    // Set default values
-    CGFloat scaleFactor = 0.5;
-    CGFloat quality = 0.5;
-    
-    // Get values from options if provided
-    if (options != nil) {
-      NSNumber *scaleNumber = [options objectForKey:@"scale"];
-      if (scaleNumber != nil) {
-        scaleFactor = [scaleNumber floatValue];
-      }
-      
-      NSNumber *qualityNumber = [options objectForKey:@"quality"];
-      if (qualityNumber != nil) {
-        quality = [qualityNumber floatValue];
-      }
-    }
-    
-    RCTLogInfo(@"WebView snapshot - Initial parameters: scale=%f, quality=%f", scaleFactor, quality);
-    
-    [_webView takeSnapshotWithConfiguration:nil completionHandler:^(UIImage * _Nullable snapshotImage, NSError * _Nullable error) {
-      NSMutableDictionary<NSString *, id> *snapshotEvent = [self baseEvent];
-      
-      if (snapshotImage != nil) {
-        // Scale Image
-        RCTLogInfo(@"WebView snapshot - Original image size: width=%f, height=%f", snapshotImage.size.width, snapshotImage.size.height);
-        CGSize newSize = CGSizeMake(snapshotImage.size.width * scaleFactor, snapshotImage.size.height * scaleFactor);
-
-        // Create a new context to draw the resized image.
-        UIGraphicsBeginImageContextWithOptions(newSize, NO, 0.0);
-        [snapshotImage drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
-        UIImage *resizedImage = UIGraphicsGetImageFromCurrentImageContext();
-        UIGraphicsEndImageContext();
-
-        // Compress Image using JPEG representation with the specified quality.
-        NSData *imageData = UIImageJPEGRepresentation(resizedImage, quality);
-        
-        RCTLogInfo(@"WebView snapshot - Resized image size: width=%f, height=%f", newSize.width, newSize.height);
-        RCTLogInfo(@"WebView snapshot - Final image data size: %lu bytes", (unsigned long)[imageData length]);
-
-        // Convert the image data to a base64 encoded string.
-        NSString *dataURL = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
-
-        // Add success flag and base64 data to event payload
-        [snapshotEvent addEntriesFromDictionary:@{
-          @"success": @YES,
-          @"base64": dataURL
-        }];
-      } else if (error != nil) {
-        // Handle error case
-        [snapshotEvent addEntriesFromDictionary:@{
-          @"success": @NO,
-          @"error": error.localizedDescription,
-          @"code": @(error.code),
-          @"domain": error.domain
-        }];
-      } else {
-        // Edge case - neither image nor error
-        [snapshotEvent addEntriesFromDictionary:@{
-          @"success": @NO,
-          @"error": @"Unknown error occurred while taking snapshot"
-        }];
-      }
-      
-      if (_onSnapshotCreated) {
-        _onSnapshotCreated(snapshotEvent);
-      }
-    }];
-  } else {
-    // iOS version < 11.0
-    if (_onSnapshotCreated) {
-      NSMutableDictionary<NSString *, id> *errorEvent = [self baseEvent];
-      [errorEvent addEntriesFromDictionary:@{
-        @"success": @NO,
-        @"error": @"Snapshot feature requires iOS 11.0 or later"
-      }];
-      _onSnapshotCreated(errorEvent);
-    }
-  }
+- (void)takeMemoryOptimizedSnapshot {
+    [self takeSnapshotWithOptions:self.snapshotOptions];
 }
 
 - (void)removeData:(NSSet *)dataTypes
