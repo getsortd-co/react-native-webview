@@ -8,6 +8,7 @@ import {
   Image,
   Platform,
   ScrollView,
+  Switch,
 } from 'react-native';
 import WebView, { WebViewSnapshotEvent, WebViewSnapshotErrorEvent } from 'react-native-webview';
 import Slider from '@react-native-community/slider';
@@ -21,7 +22,9 @@ interface SnapshotState {
   error: string | null;
   scale: number;
   quality: number;
+  saveToFile: boolean;
   webViewReady: boolean;
+  filePath: string | null;
 }
 
 export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
@@ -35,6 +38,8 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
       scale: 0.5,
       quality: 0.5,
       webViewReady: false,
+      saveToFile: false,
+      filePath: null,
     };
 
     this.webView = React.createRef<WebView>();
@@ -60,6 +65,7 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
       // Handle success case
       this.setState({
         dataUrl: event.nativeEvent?.base64,
+        filePath: event.nativeEvent?.fileUrl || null,
         error: null,
       });
     } else {
@@ -94,6 +100,7 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
           const snapshotOptions = {
             scale: this.state.scale,
             quality: this.state.quality,
+            saveToFile: this.state.saveToFile,
           };
           console.log('snapshotOptions at capture time', snapshotOptions);
           this.webView.current.takeSnapshot(snapshotOptions);
@@ -107,6 +114,10 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
     });
   };
 
+  handleSaveToFileToggle = (value: boolean) => {
+    this.setState({ saveToFile: value });
+  };
+
   handleScaleChange = (value: number) => {
     this.setState({ scale: parseFloat(value.toFixed(2)) });
   };
@@ -116,7 +127,7 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
   };
 
   render() {
-    const { webViewHeight, dataUrl, loading, error, scale, quality, webViewReady } = this.state;
+    const { webViewHeight, dataUrl, loading, error, scale, quality, webViewReady, filePath, saveToFile } = this.state;
 
     return (
       <ScrollView style={styles.container}>
@@ -166,6 +177,15 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
             />
           </View>
 
+          <View style={styles.toggleContainer}>
+            <Text style={styles.toggleLabel}>Save to File</Text>
+            <Switch
+              value={saveToFile}
+              onValueChange={this.handleSaveToFileToggle}
+              disabled={loading}
+            />
+          </View>
+
           <TouchableOpacity
             style={[
               styles.button,
@@ -194,17 +214,22 @@ export default class Snapshot extends Component<SnapshotProps, SnapshotState> {
           ) : null}
         </View>
 
-        {dataUrl ? (
+        {dataUrl || filePath ? (
           <View style={styles.resultContainer}>
             <Text style={styles.sectionTitle}>Snapshot Result</Text>
             <Text style={styles.resultInfo}>
               Snapshot taken with scale: {scale * 100}% and quality: {quality * 100}%
             </Text>
-            <Image
-              source={{ uri: dataUrl }}
-              style={styles.snapshotImage}
-              resizeMode="contain"
-            />
+            {filePath && (
+              <Text style={styles.filePathText}>Saved to: {filePath}</Text>
+            )}
+            {dataUrl && (
+              <Image
+                source={{ uri: dataUrl }}
+                style={styles.snapshotImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
         ) : null}
 
@@ -340,5 +365,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     fontStyle: 'italic',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    color: '#555',
+  },
+  filePathText: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });
